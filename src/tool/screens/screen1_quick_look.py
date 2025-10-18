@@ -218,7 +218,7 @@ def render_parameter_section_a():
         st.session_state['_temp_water_specific_heat_capacity'] = water_specific_heat_capacity
 
 
-def render_parameter_section_c():
+def render_parameter_section_b():
     """
     Demand Parameters (4 parameters) 
     """
