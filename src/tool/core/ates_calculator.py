@@ -2,9 +2,6 @@
 ATES calculator based on spreadsheet
 """
 import warnings
-#1. More concise with less code
-#2. Automatically compare and print objects.
-# Optional parameters (default, field())
 from dataclasses import dataclass 
 from typing import Dict, Any
 
@@ -139,9 +136,7 @@ class ATESParameters:
         # B. System Operational Parameters 
         if self.heating_target_avg_flowrate_pd <= 0:
             raise ValueError(f"Heating target average flowrate per doublet must be positive. Got {self.heating_target_avg_flowrate_pd}.")
-        if not (0 <= self.tolerance_in_energy_balance <= 1):
-            raise ValueError(f"Energy balance tolerance must be between 0 and 1. Got {self.tolerance_in_energy_balance}.")
-
+        
          # Heating number of doublets should be integer and non‑negative
         if not isinstance(self.heating_number_of_doublets, int):
             raise ValueError(f"Heating number of doublets must be an integer. Got {self.heating_number_of_doublets}.")

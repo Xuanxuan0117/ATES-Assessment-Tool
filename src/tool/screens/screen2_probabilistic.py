@@ -341,87 +341,110 @@ def render_parameter_groups_tabs():
     Render parameter configuration in organized tabs
     """
     tab1, tab2, tab3, tab4 = st.tabs([
-        "Physical Parameters", 
-        "Operational Parameters", 
-        "COP Parameters", 
-        "Cooling Parameters"
+        "Physical Parameters",           # Section A
+        "Demand Parameters",              # Section B
+        "ATES System Operation",          # Section C
+        "Heat Pump and Carbon Intensity"  # Section D
     ])
     
     with tab1:
         render_physical_parameters()
     
     with tab2:
-        render_operational_parameters()
+        render_demand_parameters()  
     
     with tab3:
-        render_cop_parameters()
+        render_operational_parameters()  
     
     with tab4:
-        render_cooling_parameters()
+        render_heatpump_parameters()  
 
 def render_physical_parameters():
     """
-    Render physical parameters section
+    Render physical parameters section (Section A)
     """
-    st.subheader("Basic Physical Parameters")
+    st.subheader("Physical Parameters")
     
     physical_params = [
         'aquifer_temp', 
         'water_density', 
-        'water_specific_heat_capacity',
-        'thermal_recovery_factor'
+        'water_specific_heat_capacity'
     ]
     
     param_labels = {
         'aquifer_temp': 'Aquifer Temperature (°C)',
         'water_density': 'Water Density (kg/m³)',
-        'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
-        'thermal_recovery_factor': 'Thermal Recovery Factor (-)'
+        'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)'
     }
     
     for param in physical_params:
         if param in st.session_state.param_distributions:
             render_parameter_config(param, param_labels[param])
 
+def render_demand_parameters():
+    """
+    Render demand parameters section (Section B)
+    """
+    st.subheader("Demand Parameters")
+    
+    demand_params = [
+        'heating_months',
+        'heating_temp_to_building',
+        'cooling_months',
+        'cooling_temp_to_building'
+    ]
+    
+    param_labels = {
+        'heating_months': 'Heating Months',
+        'heating_temp_to_building': 'Building Heating Temperature (°C)',
+        'cooling_months': 'Cooling Months',
+        'cooling_temp_to_building': 'Building Cooling Temperature (°C)'
+    }
+    
+    for param in demand_params:
+        if param in st.session_state.param_distributions:
+            render_parameter_config(param, param_labels[param])
+
 def render_operational_parameters():
-    """Render operational parameters section"""
-    st.subheader("System Operational Parameters")
+    """
+    Render ATES system operational parameters section (Section C)
+    """
+    st.subheader("ATES System Operation")
     
     operational_params = [
         'heating_target_avg_flowrate_pd',
-        'tolerance_in_energy_balance',
         'heating_number_of_doublets',
-        'heating_months', 
-        'cooling_months', 
-        'pump_energy_density',
-        'heating_ave_injection_temp', 
-        'heating_temp_to_building'
+        'heating_ave_injection_temp',
+        'thermal_recovery_factor',
+        'tolerance_in_energy_balance',
+        'cooling_ave_injection_temp'
     ]
     
     param_labels = {
         'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
-        'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
         'heating_number_of_doublets': 'Number of Doublets (-)',
-        'heating_months': 'Heating Months',
-        'cooling_months': 'Cooling Months',
-        'pump_energy_density': 'Pump Energy Density (kJ/m³)',
         'heating_ave_injection_temp': 'Heating Injection Temperature (°C)',
-        'heating_temp_to_building': 'Building Heating Temperature (°C)'
+        'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+        'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
+        'cooling_ave_injection_temp': 'Cooling Injection Temperature (°C)'
     }
     
     for param in operational_params:
         if param in st.session_state.param_distributions:
             render_parameter_config(param, param_labels[param])
 
-def render_cop_parameters():
-    """Render COP parameters section"""
-    st.subheader("Heat Pump COP Parameters")
+def render_heatpump_parameters():
+    """
+    Render heat pump and carbon intensity parameters section (Section D)
+    """
+    st.subheader("Heat Pump and Carbon Intensity")
     
-    cop_params = [
-        'cop_param_a', 
-        'cop_param_b', 
-        'cop_param_c', 
-        'cop_param_d', 
+    heatpump_params = [
+        'cop_param_a',
+        'cop_param_b',
+        'cop_param_c',
+        'cop_param_d',
+        'pump_energy_density',
         'carbon_intensity'
     ]
     
@@ -430,30 +453,14 @@ def render_cop_parameters():
         'cop_param_b': 'COP Parameter B (-)',
         'cop_param_c': 'COP Parameter C (-)',
         'cop_param_d': 'COP Parameter D (-)',
+        'pump_energy_density': 'Pump Energy Density (kJ/m³)',
         'carbon_intensity': 'Carbon Intensity (gCO₂/kWh)'
     }
     
-    for param in cop_params:
+    for param in heatpump_params:
         if param in st.session_state.param_distributions:
             render_parameter_config(param, param_labels[param])
 
-def render_cooling_parameters():
-    """Render cooling parameters section"""
-    st.subheader("Cooling System Parameters")
-    
-    cooling_params = [
-        'cooling_ave_injection_temp', 
-        'cooling_temp_to_building'
-    ]
-    
-    param_labels = {
-        'cooling_ave_injection_temp': 'Cooling Injection Temperature (°C)',
-        'cooling_temp_to_building': 'Building Cooling Temperature (°C)'
-    }
-    
-    for param in cooling_params:
-        if param in st.session_state.param_distributions:
-            render_parameter_config(param, param_labels[param])
 
 def render_distribution_preview(param_name: str, dist_config: Dict, param_label: str):
     """
@@ -486,15 +493,41 @@ def render_distribution_preview(param_name: str, dist_config: Dict, param_label:
         
         fig = px.histogram(
             x=samples,
-            nbins=30,
+            nbins=100,
             title=f"Distribution Preview: {param_label}",
-            labels={'x': param_label, 'y': 'Frequency'}
+            labels={'x': param_label, 'y': 'Probability'},
+            histnorm='probability'
+        )
+        
+        fig.update_traces(
+            marker=dict(
+                line=dict(color='black', width=1)
+            )
         )
         
         fig.update_layout(
             height=300,
             showlegend=False,
-            title_x=0.5
+            title_x=0.5,
+            font=dict(color='black'),
+            margin=dict(l=60, r=30, t=50, b=50),  # add margin
+            xaxis=dict(
+                linecolor='black',
+                tickcolor='black',
+                ticks='outside',
+                showline=True,
+                mirror=True,
+            ),
+            yaxis=dict(
+                linecolor='black',
+                tickcolor='black',
+                ticks='outside',
+                showline=True,
+                mirror=True,
+                automargin=True  
+            ),
+            plot_bgcolor='white',
+            paper_bgcolor='white'
         )
         
         st.plotly_chart(fig, use_container_width=True)
