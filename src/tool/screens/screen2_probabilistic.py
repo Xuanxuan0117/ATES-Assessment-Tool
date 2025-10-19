@@ -153,6 +153,14 @@ def sync_to_deterministic():
     if updated_count > 0:
         st.session_state.ates_params.__post_init__()
 
+        st.session_state['results'] = None
+        if '_last_calculation_time' in st.session_state:
+            del st.session_state['_last_calculation_time']
+        
+        return updated_count
+    
+    return 0
+
 def render_parameter_config(param_name: str, param_label: str):
     """
     Render parameter configuration interface
@@ -508,7 +516,12 @@ def render_distribution_preview(param_name: str, dist_config: Dict, param_label:
         fig.update_layout(
             height=300,
             showlegend=False,
-            title_x=0.5,
+            title={
+                'text': f"Distribution Preview: {param_label}",
+                'x': 0.5,
+                'xanchor': 'center',
+                'yanchor': 'top'
+            },
             font=dict(color='black'),
             margin=dict(l=60, r=30, t=50, b=50),  # add margin
             xaxis=dict(
@@ -751,7 +764,7 @@ def run_monte_carlo_analysis():
        progress_bar.empty()
        status_text.empty()
        
-       # Only show success message, no detailed results
+       # Only show success message
        st.success("Monte Carlo analysis completed!")
 
        st.rerun()
@@ -788,8 +801,40 @@ def display_monte_carlo_results():
        st.subheader("Quick Results Preview")
        
        successful_results = results_df[results_df['success'] == True] if 'success' in results_df.columns else results_df
-       preview_params = ['heating_system_cop', 'cooling_system_cop', 'volume_balance_ratio', 'energy_balance_ratio', 'heating_annual_energy_building_GWhth', 'cooling_annual_energy_building_GWhth',
-                         'heating_co2_emissions_per_thermal', 'cooling_co2_emissions_per_thermal', 'heating_annual_elec_energy_GWhe', 'cooling_annual_elec_energy_GWhe']
+   
+       preview_params = [
+           'heating_system_cop',
+           'cooling_system_cop',
+           'energy_balance_ratio',
+           'volume_balance_ratio',
+           'heating_annual_energy_building_GWhth',
+           'cooling_annual_energy_building_GWhth',
+           'heating_monthly_to_building',
+           'cooling_monthly_to_building',
+           'heating_ave_power_to_building_MW',
+           'cooling_ave_power_to_building_MW',
+           'heating_annual_elec_energy_GWhe',
+           'cooling_annual_elec_energy_GWhe',
+           'heating_co2_emissions_per_thermal',
+           'cooling_co2_emissions_per_thermal'
+       ]
+       
+       param_display_names = {
+           'heating_system_cop': 'Heating SCOP',
+           'cooling_system_cop': 'Cooling SCOP',
+           'energy_balance_ratio': 'Energy Balance Ratio',
+           'volume_balance_ratio': 'Volume Balance Ratio',
+           'heating_annual_energy_building_GWhth': 'Annual Heating Energy to Building (GWhth)',
+           'cooling_annual_energy_building_GWhth': 'Annual Cooling Energy to Building (GWhth)',
+           'heating_monthly_to_building': 'Average Monthly Heating to Building (GWhth)',
+           'cooling_monthly_to_building': 'Average Monthly Cooling to Building (GWhth)',
+           'heating_ave_power_to_building_MW': 'Average Heating Power (MWth)',
+           'cooling_ave_power_to_building_MW': 'Average Cooling Power (MWth)',
+           'heating_annual_elec_energy_GWhe': 'Annual Electricity for Heating (GWhe)',
+           'cooling_annual_elec_energy_GWhe': 'Annual Electricity for Cooling (GWhe)',
+           'heating_co2_emissions_per_thermal': 'CO₂ Emissions per Unit Heating (g/kWhth)',
+           'cooling_co2_emissions_per_thermal': 'CO₂ Emissions per Unit Cooling (g/kWhth)'
+       }
        
        preview_data = []
        for param in preview_params:
@@ -798,7 +843,7 @@ def display_monte_carlo_results():
                data = data[np.isfinite(data)] 
                if len(data) > 0:
                    preview_data.append({
-                       'Parameter': param.replace('_', ' ').title(),
+                       'Parameter': param_display_names.get(param, param.replace('_', ' ').title()),
                        'Mean': f"{data.mean():.3f}",
                        'Std': f"{data.std():.3f}",
                        'P10': f"{data.quantile(0.10):.3f}",

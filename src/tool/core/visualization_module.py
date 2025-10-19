@@ -439,7 +439,7 @@ class ATESVisualizer:
 
     def _plot_histograms(self, selected_params: List[str], group_params: Dict[str, str], group_name: str):
         """
-        Fixed histogram plotting with proper data cleaning and dual Y-axis support
+        istogram plotting with data cleaning and dual Y-axis support
         """
         n_params = len(selected_params)
         
@@ -458,7 +458,7 @@ class ATESVisualizer:
             param = selected_params[0]
             raw_data = self.successful_results[param]
             
-            # Clean data - remove NaN and infinite values
+            # Clean data 
             data = raw_data.dropna()
             data = data[np.isfinite(data)]
             
@@ -492,7 +492,7 @@ class ATESVisualizer:
                         name="Probability",
                         marker=dict(
                             color=self.group_colors.get(group_name, '#FF6B6B'),
-                            line=dict(color='black', width=0.5)
+                            line=dict(color='black', width=0.5)  
                         ),
                         opacity=0.7,
                         offsetgroup=0,
@@ -509,7 +509,7 @@ class ATESVisualizer:
                         name="Frequency",
                         marker=dict(
                             color='lightblue',
-                            line=dict(color='blue', width=0.5)
+                            line=dict(color='black', width=0.5)  
                         ),
                         opacity=0.4,
                         offsetgroup=0,
@@ -537,22 +537,43 @@ class ATESVisualizer:
                             )
                         )
                 
-                # Configure layout with proper dual Y-axis
+                # Configure layout with proper dual Y-axis 
                 fig.update_layout(
-                    title=f"Distribution: {group_params[param]}",
-                    title_x=0.5,
+                        title={
+                        'text': f"Distribution: {group_params[param]}",
+                        'x': 0.5,
+                        'xanchor': 'center',
+                        'yanchor': 'top'
+                    },
                     height=500,
-                    xaxis=dict(title=group_params[param]),
+                    font=dict(color='black'),  
+                    xaxis=dict(
+                        title=group_params[param],
+                        linecolor='black',     
+                        tickcolor='black',    
+                        ticks='outside',      
+                        showline=True,         
+                        mirror=True          
+                    ),
                     yaxis=dict(
                         title="Probability", 
                         side="left",
-                        range=[0, max(probability) * 1.1] if len(probability) > 0 else [0, 1]
+                        range=[0, max(probability) * 1.1] if len(probability) > 0 else [0, 1],
+                        linecolor='black',     
+                        tickcolor='black',     
+                        ticks='outside',      
+                        showline=True,        
+                        mirror=True           
                     ),
                     yaxis2=dict(
                         title="Frequency",
                         side="right",
                         overlaying="y",
-                        range=[0, max(counts) * 1.1] if len(counts) > 0 else [0, 1]
+                        range=[0, max(counts) * 1.1] if len(counts) > 0 else [0, 1],
+                        linecolor='black',   
+                        tickcolor='black',     
+                        ticks='outside',     
+                        showline=True        
                     ),
                     showlegend=True,
                     legend=dict(
@@ -564,7 +585,9 @@ class ATESVisualizer:
                     ),
                     barmode='overlay',
                     bargap=0,
-                    bargroupgap=0
+                    bargroupgap=0,
+                    plot_bgcolor='white',    
+                    paper_bgcolor='white'     
                 )
                 
             else:
@@ -577,7 +600,7 @@ class ATESVisualizer:
                         name="Distribution",
                         marker=dict(
                             color=self.group_colors.get(group_name, '#FF6B6B'),
-                            line=dict(color='black', width=0.5)
+                            line=dict(color='black', width=0.5)  
                         ),
                         opacity=0.7,
                         histnorm='probability' 
@@ -608,11 +631,32 @@ class ATESVisualizer:
                         )
                 
                 fig.update_layout(
-                    title=f"Distribution: {group_params[param]}",
-                    title_x=0.5,
+                    title={
+                        'text': f"Distribution: {group_params[param]}",
+                        'x': 0.5,
+                        'xanchor': 'center',
+                        'yanchor': 'top'
+                    },
                     height=500,
-                    xaxis=dict(title=group_params[param]),
-                    yaxis=dict(title="Probability")
+                    font=dict(color='black'),  
+                    xaxis=dict(
+                        title=group_params[param],
+                        linecolor='black',     
+                        tickcolor='black',     
+                        ticks='outside',      
+                        showline=True,         
+                        mirror=True            
+                    ),
+                    yaxis=dict(
+                        title="Probability",
+                        linecolor='black',     
+                        tickcolor='black',     
+                        ticks='outside',       
+                        showline=True,        
+                        mirror=True            
+                    ),
+                    plot_bgcolor='white',      
+                    paper_bgcolor='white'      
                 )
             
             # Add statistical lines
@@ -681,7 +725,7 @@ class ATESVisualizer:
                                     name="Probability",
                                     marker=dict(
                                         color=self.group_colors.get(group_name, '#FF6B6B'),
-                                        line=dict(color='black', width=0.5)
+                                        line=dict(color='black', width=0.5)  
                                     ),
                                     opacity=0.7,
                                     offsetgroup=0,
@@ -698,6 +742,7 @@ class ATESVisualizer:
                                     name="Frequency",
                                     marker=dict(
                                         color='lightblue',
+                                        line=dict(color='black', width=0.5),  
                                         opacity=0.4
                                     ),
                                     offsetgroup=0,
@@ -705,9 +750,14 @@ class ATESVisualizer:
                                 )
                             )
                             
-                            # Configure layout
+                            # Configure layout 
                             fig.update_layout(
-                                title=group_params[param],
+                                title={
+                                    'text': group_params[param],
+                                    'x': 0.5,
+                                    'xanchor': 'center',
+                                    'yanchor': 'top'
+                                },
                                 height=350,
                                 title_x=0.5,
                                 title_font_size=12,
@@ -716,18 +766,37 @@ class ATESVisualizer:
                                 barmode='overlay',
                                 bargap=0,
                                 bargroupgap=0,
-                                xaxis=dict(title="Value"),
+                                font=dict(color='black'),  
+                                xaxis=dict(
+                                    title="Value",
+                                    linecolor='black',     
+                                    tickcolor='black',   
+                                    ticks='outside',       
+                                    showline=True,         
+                                    mirror=True            
+                                ),
                                 yaxis=dict(
                                     title="Probability", 
                                     side="left",
-                                    range=[0, max(probability) * 1.1] if len(probability) > 0 else [0, 1]
+                                    range=[0, max(probability) * 1.1] if len(probability) > 0 else [0, 1],
+                                    linecolor='black',     
+                                    tickcolor='black',   
+                                    ticks='outside',      
+                                    showline=True,         
+                                    mirror=True           
                                 ),
                                 yaxis2=dict(
                                     title="Freq", 
                                     side="right", 
                                     overlaying="y",
-                                    range=[0, max(counts) * 1.1] if len(counts) > 0 else [0, 1]
-                                )
+                                    range=[0, max(counts) * 1.1] if len(counts) > 0 else [0, 1],
+                                    linecolor='black',     
+                                    tickcolor='black',    
+                                    ticks='outside',      
+                                    showline=True          
+                                ),
+                                plot_bgcolor='white',      
+                                paper_bgcolor='white'     
                             )
                             
                             # Add normal fit if requested
@@ -759,7 +828,7 @@ class ATESVisualizer:
                                     nbinsx=bins_count,
                                     marker=dict(
                                         color=self.group_colors.get(group_name, '#FF6B6B'),
-                                        line=dict(color='black', width=0.5)
+                                        line=dict(color='black', width=0.5)  # 黑色边框
                                     ),
                                     opacity=0.7,
                                     histnorm='probability'
@@ -793,8 +862,25 @@ class ATESVisualizer:
                                 title_font_size=12,
                                 showlegend=False,
                                 margin=dict(l=40, r=40, t=40, b=40),
-                                xaxis=dict(title="Value"),
-                                yaxis=dict(title="Probability")
+                                font=dict(color='black'),  
+                                xaxis=dict(
+                                    title="Value",
+                                    linecolor='black',     
+                                    tickcolor='black',     
+                                    ticks='outside',      
+                                    showline=True,         
+                                    mirror=True            
+                                ),
+                                yaxis=dict(
+                                    title="Probability",
+                                    linecolor='black',     
+                                    tickcolor='black',     
+                                    ticks='outside',      
+                                    showline=True,        
+                                    mirror=True            
+                                ),
+                                plot_bgcolor='white',     
+                                paper_bgcolor='white'     
                             )
                         
                         # Add mean line
@@ -813,8 +899,7 @@ class ATESVisualizer:
                             
                             # Show infinite count if any
                             if infinite_count > 0:
-                                st.caption(f" {infinite_count} infinite values excluded")
-
+                                st.caption(f"⚠ {infinite_count} infinite values excluded")
 
         
     def _plot_box_plots(self, selected_params: List[str], group_params: Dict[str, str], group_name: str):

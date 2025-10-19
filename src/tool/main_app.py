@@ -58,14 +58,15 @@ def main():
     if current_screen in ['Results - Distributions', 'Results - Percentiles', 'Results - Sensitivity']:
         if not check_monte_carlo_status():
             st.warning("No probabilistic results available. Run Monte Carlo analysis first.")
+            
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("Go to Probabilistic Setup", use_container_width=True):
-                    st.session_state.current_page = 'Probabilistic Setup'
+                if st.button("Go to Probabilistic Setup", use_container_width=True, type="primary", key="goto_prob_main"):
+                    st.session_state['current_page'] = 'Probabilistic Setup'
                     st.rerun()
             with col2:
-                if st.button("Back to Calculator", use_container_width=True):
-                    st.session_state.current_page = 'Quick Look'
+                if st.button("Back to Calculator", use_container_width=True, key="goto_calc_main"):
+                    st.session_state['current_page'] = 'Quick Look'
                     st.rerun()
             return
     
@@ -101,17 +102,17 @@ def render_sidebar(app_state):
     
     current_page = st.session_state.get('current_page', 'Quick Look')
     
+    
     selected_page = st.sidebar.selectbox(
         "Navigate to:",
         pages,
         index=pages.index(current_page),
-        format_func=lambda x: page_descriptions.get(x, str(x)),
-        key="main_navigation"
+        format_func=lambda x: page_descriptions.get(x, str(x))
     )
     
-    # Update page if changed
+
     if selected_page != current_page:
-        st.session_state.current_page = selected_page
+        st.session_state['current_page'] = selected_page
         st.rerun()
     
     st.sidebar.markdown("---")
@@ -121,9 +122,6 @@ def render_sidebar(app_state):
     
     # Case Management
     app_state.render_case_management()
-    
-    # System Status
-    # render_system_status()
 
 def render_workflow_progress(app_state):
     """Render workflow progress with real-time status"""
