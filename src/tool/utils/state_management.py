@@ -160,7 +160,7 @@ class ATESAppState:
         )
         
         # Save button
-        if st.sidebar.button("Save Case", type="primary", use_container_width=True, key="stable_save_btn"):
+        if st.sidebar.button("Save Case", type="primary", width="stretch", key="stable_save_btn"):
             self._save_case_with_name(save_options, new_case_name or current_name)
     
     def _render_load_section_stable(self):
@@ -189,7 +189,7 @@ class ATESAppState:
         st.sidebar.markdown("**Quick Actions**")
         
 
-        if st.sidebar.button("New Case", use_container_width=True, key="stable_new_case_btn", 
+        if st.sidebar.button("New Case", width="stretch", key="stable_new_case_btn", 
                     help="Start a completely new case (resets everything to startup state)"):
             self._handle_complete_new_case()
     
@@ -369,7 +369,7 @@ class ATESAppState:
                 data=state_json,
                 file_name=filename,
                 mime="application/json",
-                use_container_width=True,
+                width="stretch",
                 key=f"download_{clean_name}_{timestamp}"
             )
             

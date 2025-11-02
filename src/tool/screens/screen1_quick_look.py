@@ -178,7 +178,7 @@ def render_parameter_section_a():
     """
     Physical Parameters (3 parameters)
     """
-    with st.expander("Physical Parameters", expanded=False):
+    with st.expander("A. Physical Parameters", expanded=False):
         col1, col2 = st.columns(2)
         
         with col1:
@@ -222,7 +222,7 @@ def render_parameter_section_b():
     """
     Demand Parameters (4 parameters) 
     """
-    with st.expander("Demand Parameters", expanded=False):
+    with st.expander("B. Demand Parameters", expanded=False):
         col1, col2 = st.columns(2)
         
         with col1:
@@ -277,7 +277,7 @@ def render_parameter_section_c():
     """
     ATES System Operation (6 parameters) 
     """
-    with st.expander("ATES System Operation", expanded=False):
+    with st.expander("C. ATES System Operation", expanded=False):
         col1, col2 = st.columns(2)
         
         with col1:
@@ -288,7 +288,7 @@ def render_parameter_section_c():
                 max_value=200.0,
                 step=1.0,
                 format="%.2f",
-                help="Target flow rate for heating per doublet"
+                help="Target flow rate for heating per borehole"
             )
             
             heating_number_of_doublets = st.number_input(
@@ -353,7 +353,7 @@ def render_parameter_section_d():
     """
     Heat Pump and Carbon Intensity (6 parameters) 
     """
-    with st.expander("Heat Pump and Carbon Intensity", expanded=False):
+    with st.expander("D. Heat Pump and Carbon Intensity", expanded=False):
         col1, col2 = st.columns(2)
         
         with col1:
@@ -448,20 +448,20 @@ def render_parameter_section_e():
                 help="12 - Heating Months - Cooling Months"
             )
             
-            st.text_input(
-                "Number of Cooling Doublets",
-                value=f"{st.session_state.ates_params.cooling_number_of_doublets}",
-                disabled=True,
-                help="Equal to heating doublets"
-            )
+            # st.text_input(
+            #     "Number of Cooling Doublets",
+            #     value=f"{st.session_state.ates_params.cooling_number_of_doublets}",
+            #     disabled=True,
+            #     help="Equal to heating doublets"
+            # )
         
         with col2:
-            st.text_input(
-                "Cooling Flow Rate per Doublet (m³/hr)",
-                value=f"{getattr(st.session_state.ates_params, 'cooling_target_avg_flowrate_pd', 0.0):.2f}",
-                disabled=True,
-                help="Calculated from energy balance"
-            )
+            # st.text_input(
+            #     "Cooling Flow Rate per Doublet (m³/hr)",
+            #     value=f"{getattr(st.session_state.ates_params, 'cooling_target_avg_flowrate_pd', 0.0):.2f}",
+            #     disabled=True,
+            #     help="Calculated from energy balance"
+            # )
             
             st.text_input(
                 "Total Heating Volume (m³)",
@@ -617,38 +617,36 @@ def render_heating_results(results):
         # Detailed results table
         heating_data = []
         heating_params = [
-            ("Heating Total Energy Stored (J)", results.heating_total_energy_stored, "J"),
-            ("Heating Stored Energy Recovered (J)", results.heating_stored_energy_recovered, "J"),
-            ("Heating Total Flow Rate (m³/hr)", results.heating_total_flow_rate_m3hr, "m³/hr"),
-            ("Heating Total Flow Rate (l/s)", results.heating_total_flow_rate_ls, "l/s"),
-            ("Heating Total Flow Rate (m³/s)", results.heating_total_flow_rate_m3s, "m³/s"),
-            ("Heating Average Production Temperature", results.heating_ave_production_temp, "°C"),
-            ("Heating Average Temperature Change Across HX", results.heating_ave_temp_change_across_HX, "°C"),
-            ("Heating Temperature Change Induced by HP", results.heating_temp_change_induced_HP, "°C"),
-            ("Heating Heat Pump COP", results.heating_heat_pump_COP, "-"),
-            ("Heating Heat Pump Factor (ehp)", results.heating_ehp, "-"),
-            ("Heating Average Power to HX (W)", results.heating_ave_power_to_HX_W, "W"),
-            ("Heating Average Power to HX (MW)", results.heating_ave_power_to_HX_MW, "MW"),
-            ("Heating Annual Energy from Aquifer (J)", results.heating_annual_energy_aquifer_J, "J"),
-            ("Heating Annual Energy from Aquifer (kWhth)", results.heating_annual_energy_aquifer_kWhth, "kWhth"),
-            ("Heating Annual Energy from Aquifer (GWhth)", results.heating_annual_energy_aquifer_GWhth, "GWhth"),
-            ("Heating Monthly Energy to HX", results.heating_monthly_to_HX, "GWh/month"),
-            ("Energy Balance Ratio (EBR)", results.energy_balance_ratio, "-"),
-            ("Volume Balance Ratio (VBR)", results.volume_balance_ratio, "-"),
-            ("Heating Average Power to Building (W)", results.heating_ave_power_to_building_W, "W"),
-            ("Heating Average Power to Building (MW)", results.heating_ave_power_to_building_MW, "MW"),
-            ("Heating Annual Energy to Building (J)", results.heating_annual_energy_building_J, "J"),
-            ("Heating Annual Energy to Building (kWhth)", results.heating_annual_energy_building_kWhth, "kWhth"),
-            ("Heating Annual Energy to Building (GWhth)", results.heating_annual_energy_building_GWhth, "GWhth"),
-            ("Heating Monthly Energy to Building", results.heating_monthly_to_building, "GWh/month"),
-            ("Heating Electrical Energy to Hydraulic Pumps", results.heating_elec_energy_hydraulic_pumps, "J"),
-            ("Heating Electrical Energy to Heat Pump", results.heating_elec_energy_HP, "J"),
-            ("Heating Annual Electrical Energy (J)", results.heating_annual_elec_energy_J, "J"),
-            ("Heating Annual Electrical Energy (MWhe)", results.heating_annual_elec_energy_MWhe, "MWhe"),
-            ("Heating Annual Electrical Energy (GWhe)", results.heating_annual_elec_energy_GWhe, "GWhe"),
-            ("Heating System COP", results.heating_system_cop, "-"),
-            ("Heating Electrical Energy per Thermal", results.heating_elec_energy_per_thermal, "kWhe/kWhth"),
-            ("Heating CO₂ Emissions per Thermal", results.heating_co2_emissions_per_thermal, "gCO₂/kWhth"),
+            ("Total Energy Stored (J)", results.heating_total_energy_stored, "J"),
+            ("Stored Energy Recovered (J)", results.heating_stored_energy_recovered, "J"),
+            ("Total Flow Rate (m³/hr)", results.heating_total_flow_rate_m3hr, "m³/hr"),
+            ("Total Flow Rate (l/s)", results.heating_total_flow_rate_ls, "l/s"),
+            ("Total Flow Rate (m³/s)", results.heating_total_flow_rate_m3s, "m³/s"),
+            ("Average Production Temperature", results.heating_ave_production_temp, "°C"),
+            ("Average Temperature Change Across Heat Exchanger", results.heating_ave_temp_change_across_HX, "°C"),
+            ("Temperature Change Induced by HP", results.heating_temp_change_induced_HP, "°C"),
+            ("Heat Pump COP", results.heating_heat_pump_COP, "-"),
+            ("Heat Pump Factor (ehp)", results.heating_ehp, "-"),
+            ("Average Power to Heat Exchanger (W)", results.heating_ave_power_to_HX_W, "W"),
+            ("Average Power to Heat Exchanger (MW)", results.heating_ave_power_to_HX_MW, "MW"),
+            ("Annual Energy from Aquifer (J)", results.heating_annual_energy_aquifer_J, "J"),
+            ("Annual Energy from Aquifer (kWhth)", results.heating_annual_energy_aquifer_kWhth, "kWhth"),
+            ("Annual Energy from Aquifer (GWhth)", results.heating_annual_energy_aquifer_GWhth, "GWhth"),
+            ("Monthly Energy to Heat Exchanger", results.heating_monthly_to_HX, "GWh/month"),
+            ("Average Power to Building (W)", results.heating_ave_power_to_building_W, "W"),
+            ("Average Power to Building (MW)", results.heating_ave_power_to_building_MW, "MW"),
+            ("Annual Energy to Building (J)", results.heating_annual_energy_building_J, "J"),
+            ("Annual Energy to Building (kWhth)", results.heating_annual_energy_building_kWhth, "kWhth"),
+            ("Annual Energy to Building (GWhth)", results.heating_annual_energy_building_GWhth, "GWhth"),
+            ("Monthly Energy to Building", results.heating_monthly_to_building, "GWh/month"),
+            ("Electrical Energy to Hydraulic Pumps", results.heating_elec_energy_hydraulic_pumps, "J"),
+            ("Electrical Energy to Heat Pump", results.heating_elec_energy_HP, "J"),
+            ("Annual Electrical Energy (J)", results.heating_annual_elec_energy_J, "J"),
+            ("Annual Electrical Energy (MWhe)", results.heating_annual_elec_energy_MWhe, "MWhe"),
+            ("Annual Electrical Energy (GWhe)", results.heating_annual_elec_energy_GWhe, "GWhe"),
+            ("System COP", results.heating_system_cop, "-"),
+            ("Electrical Energy per Thermal", results.heating_elec_energy_per_thermal, "kWhe/kWhth"),
+            ("CO₂ Emissions per Thermal", results.heating_co2_emissions_per_thermal, "gCO₂/kWhth"),
         ]
 
         for name, value, unit in heating_params:
@@ -669,7 +667,7 @@ def render_heating_results(results):
             })
 
         df_heating = pd.DataFrame(heating_data)
-        st.dataframe(df_heating, use_container_width=True, hide_index=True)
+        st.dataframe(df_heating, width="stretch", hide_index=True)
 
 def render_cooling_results(results):
     """
@@ -719,36 +717,37 @@ def render_cooling_results(results):
         # cooling data result
         cooling_data = []
         cooling_params = [
-            ("Cooling Total Energy Stored (J)", results.cooling_total_energy_stored, "J"),
-            ("Cooling Stored Energy Recovered (J)", results.cooling_stored_energy_recovered, "J"),
-            ("Cooling Total Flow Rate (m³/hr)", results.cooling_total_flow_rate_m3hr, "m³/hr"),
-            ("Cooling Total Flow Rate (l/s)", results.cooling_total_flow_rate_ls, "l/s"),
-            ("Cooling Total Flow Rate (m³/s)", results.cooling_total_flow_rate_m3s, "m³/s"),
-            ("Cooling Average Production Temperature", results.cooling_ave_production_temp, "°C"),
-            ("Cooling Average Temperature Change Across HX", results.cooling_ave_temp_change_across_HX, "°C"),
-            ("Cooling Temperature Change Induced by HP", results.cooling_temp_change_induced_HP, "°C"),
-            ("Cooling Heat Pump COP", results.cooling_heat_pump_COP, "-"),
-            ("Cooling Heat Pump Factor (ehp)", results.cooling_ehp, "-"),
-            ("Cooling Average Power to HX (W)", results.cooling_ave_power_to_HX_W, "W"),
-            ("Cooling Average Power to HX (MW)", results.cooling_ave_power_to_HX_MW, "MW"),
-            ("Cooling Annual Energy from Aquifer (J)", results.cooling_annual_energy_aquifer_J, "J"),
-            ("Cooling Annual Energy from Aquifer (kWhth)", results.cooling_annual_energy_aquifer_kWhth, "kWhth"),
-            ("Cooling Annual Energy from Aquifer (GWhth)", results.cooling_annual_energy_aquifer_GWhth, "GWhth"),
-            ("Cooling Monthly Energy to HX", results.cooling_monthly_to_HX, "GWh/month"),
-            ("Cooling Average Power to Building (W)", results.cooling_ave_power_to_building_W, "W"),
-            ("Cooling Average Power to Building (MW)", results.cooling_ave_power_to_building_MW, "MW"),
-            ("Cooling Annual Energy to Building (J)", results.cooling_annual_energy_building_J, "J"),
-            ("Cooling Annual Energy to Building (kWhth)", results.cooling_annual_energy_building_kWhth, "kWhth"),
-            ("Cooling Annual Energy to Building (GWhth)", results.cooling_annual_energy_building_GWhth, "GWhth"),
-            ("Cooling Monthly Energy to Building", results.cooling_monthly_to_building, "GWh/month"),
-            ("Cooling Electrical Energy to Hydraulic Pumps", results.cooling_elec_energy_hydraulic_pumps, "J"),
-            ("Cooling Electrical Energy to Heat Pump", results.cooling_elec_energy_HP, "J"),
-            ("Cooling Annual Electrical Energy (J)", results.cooling_annual_elec_energy_J, "J"),
-            ("Cooling Annual Electrical Energy (MWhe)", results.cooling_annual_elec_energy_MWhe, "MWhe"),
-            ("Cooling Annual Electrical Energy (GWhe)", results.cooling_annual_elec_energy_GWhe, "GWhe"),
-            ("Cooling System COP", results.cooling_system_cop, "-"),
-            ("Cooling Electrical Energy per Thermal", results.cooling_elec_energy_per_thermal, "kWhe/kWhth"),
-            ("Cooling CO₂ Emissions per Thermal", results.cooling_co2_emissions_per_thermal, "gCO₂/kWhth"),
+            ("Total Energy Stored (J)", results.cooling_total_energy_stored, "J"),
+            ("Stored Energy Recovered (J)", results.cooling_stored_energy_recovered, "J"),
+            ("Target Flow Rate per Borehole (m³/hr)", st.session_state.ates_params.cooling_target_avg_flowrate_pd, "m³/hr"),
+            ("Total Flow Rate (m³/hr)", results.cooling_total_flow_rate_m3hr, "m³/hr"),
+            ("Total Flow Rate (l/s)", results.cooling_total_flow_rate_ls, "l/s"),
+            ("Total Flow Rate (m³/s)", results.cooling_total_flow_rate_m3s, "m³/s"),
+            ("Average Production Temperature", results.cooling_ave_production_temp, "°C"),
+            ("Average Temperature Change Across Heat Exchanger", results.cooling_ave_temp_change_across_HX, "°C"),
+            ("Temperature Change Induced by HP", results.cooling_temp_change_induced_HP, "°C"),
+            ("Heat Pump COP", results.cooling_heat_pump_COP, "-"),
+            ("Heat Pump Factor (ehp)", results.cooling_ehp, "-"),
+            ("Average Power to Heat Exchanger (W)", results.cooling_ave_power_to_HX_W, "W"),
+            ("Average Power to HHeat Exchanger (MW)", results.cooling_ave_power_to_HX_MW, "MW"),
+            ("Annual Energy from Aquifer (J)", results.cooling_annual_energy_aquifer_J, "J"),
+            ("Annual Energy from Aquifer (kWhth)", results.cooling_annual_energy_aquifer_kWhth, "kWhth"),
+            ("Annual Energy from Aquifer (GWhth)", results.cooling_annual_energy_aquifer_GWhth, "GWhth"),
+            ("Monthly Energy to Heat Exchanger", results.cooling_monthly_to_HX, "GWh/month"),
+            ("Average Power to Building (W)", results.cooling_ave_power_to_building_W, "W"),
+            ("Average Power to Building (MW)", results.cooling_ave_power_to_building_MW, "MW"),
+            ("Annual Energy to Building (J)", results.cooling_annual_energy_building_J, "J"),
+            ("Annual Energy to Building (kWhth)", results.cooling_annual_energy_building_kWhth, "kWhth"),
+            ("Annual Energy to Building (GWhth)", results.cooling_annual_energy_building_GWhth, "GWhth"),
+            ("Monthly Energy to Building", results.cooling_monthly_to_building, "GWh/month"),
+            ("Electrical Energy to Hydraulic Pumps", results.cooling_elec_energy_hydraulic_pumps, "J"),
+            ("Electrical Energy to Heat Pump", results.cooling_elec_energy_HP, "J"),
+            ("Annual Electrical Energy (J)", results.cooling_annual_elec_energy_J, "J"),
+            ("Annual Electrical Energy (MWhe)", results.cooling_annual_elec_energy_MWhe, "MWhe"),
+            ("Annual Electrical Energy (GWhe)", results.cooling_annual_elec_energy_GWhe, "GWhe"),
+            ("System COP", results.cooling_system_cop, "-"),
+            ("Electrical Energy per Thermal", results.cooling_elec_energy_per_thermal, "kWhe/kWhth"),
+            ("CO₂ Emissions per Thermal", results.cooling_co2_emissions_per_thermal, "gCO₂/kWhth"),
         ]
 
         for name, value, unit in cooling_params:
@@ -771,7 +770,53 @@ def render_cooling_results(results):
             })
 
         df_cooling = pd.DataFrame(cooling_data)
-        st.dataframe(df_cooling, use_container_width=True, hide_index=True)
+        st.dataframe(df_cooling, width="stretch", hide_index=True)
+
+def render_sustainability_results(results):
+    """
+    Render sustainability and balance metrics
+    """
+    with st.expander("Sustainability", expanded=True):
+        
+        # Key metrics display
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.metric(
+                "Energy Balance Ratio (EBR)",
+                f"{results.energy_balance_ratio:.3f}",
+                help="Ratio of cooling energy to heating energy stored"
+            )
+        
+        with col2:
+            st.metric(
+                "Volume Balance Ratio (VBR)",
+                f"{results.volume_balance_ratio:.3f}",
+                help="Ratio of cooling volume to heating volume"
+            )
+        
+        # # Detailed table
+        # sustainability_data = []
+        # sustainability_params = [
+        #     ("Energy Balance Ratio (EBR)", results.energy_balance_ratio, "-"),
+        #     ("Volume Balance Ratio (VBR)", results.volume_balance_ratio, "-"),
+        # ]
+        
+        # for name, value, unit in sustainability_params:
+        #     if isinstance(value, float):
+        #         formatted_value = f"{value:.3f}"
+        #     else:
+        #         formatted_value = str(value)
+            
+        #     sustainability_data.append({
+        #         "Parameter": name,
+        #         "Value": formatted_value,
+        #         "Unit": unit
+        #     })
+        
+        # df_sustainability = pd.DataFrame(sustainability_data)
+        # st.dataframe(df_sustainability, width="stretch", hide_index=True)
+
 
 # MAIN APPLICATION
 
@@ -819,12 +864,12 @@ def main():
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("Calculate", type="primary", use_container_width=True):
+            if st.button("Calculate", type="primary", width="stretch"):
                 if perform_calculation():
                     st.rerun()
         
         with col2:
-            if st.button("Reset", use_container_width=True):
+            if st.button("Reset", width="stretch"):
                 # Clear temporary variables
                 temp_keys = [key for key in st.session_state.keys() 
                         if isinstance(key, str) and key.startswith('_temp_')]
@@ -856,7 +901,7 @@ def main():
                 st.rerun()
         
         with col3:
-            if st.button("Validate", use_container_width=True):
+            if st.button("Validate", width="stretch"):
                 # Update parameters first, then validate
                 update_all_parameters_from_temp()
                 errors = validate_parameters()
@@ -877,6 +922,7 @@ def main():
             # Render results
             render_heating_results(results)
             render_cooling_results(results)
+            render_sustainability_results(results)
 
 if __name__ == "__main__":
     main()

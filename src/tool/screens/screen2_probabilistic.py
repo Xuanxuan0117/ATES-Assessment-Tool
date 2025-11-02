@@ -543,7 +543,7 @@ def render_distribution_preview(param_name: str, dist_config: Dict, param_label:
             paper_bgcolor='white'
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -657,7 +657,7 @@ def render_enabled_parameters_summary():
         })
     
     summary_df = pd.DataFrame(summary_data)
-    st.dataframe(summary_df, use_container_width=True, hide_index=True)
+    st.dataframe(summary_df, width="stretch", hide_index=True)
 
 def render_monte_carlo_execution():
     """
@@ -684,7 +684,7 @@ def render_monte_carlo_execution():
             st.error(f"• {error}")
         return
     
-    if st.button("Run Analysis", type="primary", use_container_width=True):
+    if st.button("Run Analysis", type="primary", width="stretch"):
         run_monte_carlo_analysis()
 
 def validate_distribution_config() -> List[str]:
@@ -853,7 +853,7 @@ def display_monte_carlo_results():
        
        if preview_data:
            preview_df = pd.DataFrame(preview_data)
-           st.dataframe(preview_df, use_container_width=True, hide_index=True)
+           st.dataframe(preview_df, width="stretch", hide_index=True)
 
 def render_monte_carlo_export():
     """
@@ -864,7 +864,7 @@ def render_monte_carlo_export():
     col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("Export Full Raw Data", use_container_width=True):
+        if st.button("Export Full Raw Data", width="stretch"):
             results_csv = st.session_state.monte_carlo_results.to_csv(index=False, encoding='utf-8-sig')
             
             app_state = get_app_state()
@@ -877,11 +877,11 @@ def render_monte_carlo_export():
                 file_name=f"{clean_case_name}_monte_carlo_raw_{time.strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv",
                 key="download_full_mc_csv",
-                use_container_width=True
+                width="stretch"
             )
     
     with col2:
-        if st.button("Export Key Results Only", use_container_width=True):
+        if st.button("Export Key Results Only", width="stretch"):
             
             key_columns = [
                 'iteration', 'success',
@@ -909,7 +909,7 @@ def render_monte_carlo_export():
                 file_name=f"{clean_case_name}_monte_carlo_key_{time.strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv",
                 key="download_key_mc_csv",
-                use_container_width=True
+                width="stretch"
             )
 
 def reset_all_distributions():
@@ -964,7 +964,7 @@ def main():
     
     with col1:
         # Button to import parameter values from deterministic calculation
-        if st.button("Sync FROM Quick Look", use_container_width=True,
+        if st.button("Sync FROM Quick Look", width="stretch",
                      help="Import parameter values from deterministic calculation"):
             sync_from_deterministic()  # Import values from Quick Look screen
             st.session_state.param_config_version = st.session_state.get('param_config_version', 0) + 1  # Update version
@@ -974,14 +974,14 @@ def main():
     
     with col2:
         # Button to export representative values to deterministic calculation
-        if st.button("Sync TO Quick Look", use_container_width=True,
+        if st.button("Sync TO Quick Look", width="stretch",
                      help="Export representative values to deterministic calculation"):
             sync_to_deterministic()  # Export values to Quick Look screen
             st.success("Synchronized to Quick Look")
     
     with col3:
         # Button to reset all parameters to their default values
-        if st.button("Reset All", use_container_width=True,
+        if st.button("Reset All", width="stretch",
                      help="Reset all parameters to default values"):
             reset_all_distributions()  # Reset all probability distributions
             st.success("All parameters reset to defaults")

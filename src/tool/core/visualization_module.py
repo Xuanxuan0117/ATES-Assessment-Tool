@@ -85,93 +85,94 @@ class ATESVisualizer:
         # define parameter groups and display names
         self.parameter_groups = {
             'Heating System - Key Performance': {
-                'heating_system_cop': 'Heating System COP',
-                'heating_annual_energy_building_GWhth': 'Heating Annual Energy to Building (GWhth)',
-                'heating_annual_elec_energy_GWhe': 'Heating Annual Electrical Energy (GWhe)',
-                'heating_co2_emissions_per_thermal': 'Heating CO₂ Emissions per Thermal (gCO₂/kWhth)',
-                'heating_ave_power_to_building_MW': 'Heating Average Power to Building (MW)',
-                'heating_elec_energy_per_thermal': 'Heating Electrical Energy per Thermal (kWhe/kWhth)'
-            },
-            
-            'Heating System - Energy & Storage': {
-                'heating_total_energy_stored': 'Heating Total Energy Stored (J)',
-                'heating_stored_energy_recovered': 'Heating Stored Energy Recovered (J)',
-                'heating_annual_energy_aquifer_J': 'Heating Annual Energy from Aquifer (J)',
-                'heating_annual_energy_aquifer_kWhth': 'Heating Annual Energy from Aquifer (kWhth)',
-                'heating_annual_energy_aquifer_GWhth': 'Heating Annual Energy from Aquifer (GWhth)',
-                'heating_annual_energy_building_J': 'Heating Annual Energy to Building (J)',
-                'heating_annual_energy_building_kWhth': 'Heating Annual Energy to Building (kWhth)',
-                'heating_monthly_to_HX': 'Heating Monthly Energy to HX (GWh/month)',
-                'heating_monthly_to_building': 'Heating Monthly Energy to Building (GWh/month)'
+                'heating_system_cop': 'System COP',
+                'heating_annual_energy_building_GWhth': 'Annual Energy to Building (GWhth)',
+                'heating_monthly_to_building': 'Average Monthly to Building (GWhth)',
+                'heating_annual_elec_energy_GWhe': 'Annual Electricity (GWhe)',
+                'heating_annual_energy_building_J': 'Annual Energy to Building (J)',
+                'heating_annual_energy_building_kWhth': 'Annual Energy to Building (kWhth)',
+                'heating_annual_elec_energy_J': 'Annual Electricity (J)',
+                'heating_annual_elec_energy_MWhe': 'Annual Electricity (MWhe)',
+                'heating_co2_emissions_per_thermal': 'CO₂ Emissions per Unit Thermal (gCO₂/kWhth)',
+                'heating_elec_energy_per_thermal': 'Electrical Energy per Unit Thermal (kWhe/kWhth)'
             },
             
             'Heating System - Flow & Temperature': {
-                'heating_total_flow_rate_m3hr': 'Heating Total Flow Rate (m³/hr)',
-                'heating_total_flow_rate_ls': 'Heating Total Flow Rate (l/s)',
-                'heating_total_flow_rate_m3s': 'Heating Total Flow Rate (m³/s)',
-                'heating_ave_production_temp': 'Heating Average Production Temperature (°C)',
-                'heating_ave_temp_change_across_HX': 'Heating Average Temperature Change Across HX (°C)',
-                'heating_temp_change_induced_HP': 'Heating Temperature Change Induced by HP (°C)'
+                'heating_total_flow_rate_ls': 'Total Flow Rate (l/s)',
+                'heating_ave_production_temp': 'Average Production Temperature (°C)',
+                'heating_total_flow_rate_m3hr': 'Total Flow Rate (m³/hr)',
+                'heating_total_flow_rate_m3s': 'Total Flow Rate (m³/s)',
+                'heating_ave_temp_change_across_HX': 'Average Temperature Change Across Heat Exchanger (°C)',
+                'heating_temp_change_induced_HP': 'Temperature Change Induced by Heat Pump (°C)'
             },
             
-            'Heating System - Power': {
-                'heating_ave_power_to_HX_W': 'Heating Average Power to HX (W)',
-                'heating_ave_power_to_HX_MW': 'Heating Average Power to HX (MW)',
-                'heating_ave_power_to_building_W': 'Heating Average Power to Building (W)'
+            'Heating System - Energy & Storage': {
+                'heating_total_energy_stored': 'Annual Energy Stored (J)',
+                'heating_stored_energy_recovered': 'Annual Energy Recovered (J)',
+                'heating_annual_energy_aquifer_GWhth': 'Annual Energy Produced from Aquifer (GWhth)',
+                'heating_monthly_to_HX': 'Monthly Energy to Heat Exchanger (GWhth)',
+                'heating_annual_energy_aquifer_J': 'Annual Energy Produced from Aquifer (J)',
+                'heating_annual_energy_aquifer_kWhth': 'Annual Energy Produced from Aquifer (kWhth)'
             },
             
             'Heating System - Heat Pump & Electrical': {
-                'heating_heat_pump_COP': 'Heating Heat Pump COP',
-                'heating_ehp': 'Heating Heat Pump Factor (ehp)',
-                'heating_elec_energy_hydraulic_pumps': 'Heating Electrical Energy to Hydraulic Pumps (J)',
-                'heating_elec_energy_HP': 'Heating Electrical Energy to Heat Pump (J)',
-                'heating_annual_elec_energy_J': 'Heating Annual Electrical Energy (J)',
-                'heating_annual_elec_energy_MWhe': 'Heating Annual Electrical Energy (MWhe)'
+                'heating_heat_pump_COP': 'Heat Pump COP',
+                'heating_elec_energy_HP': 'Annual Energy to Heat Pump (J)',
+                'heating_elec_energy_hydraulic_pumps': 'Annual Energy to Hydraulic Pump (J)',
+                'heating_ehp': 'Heat Pump Factor (ehp)'
+            },
+            
+            'Heating System - Power': {
+                'heating_ave_power_to_HX_MW': 'Average Power to Heat Exchanger (MW)',
+                'heating_ave_power_to_building_MW': 'Average Power to Building (MW)',
+                'heating_ave_power_to_HX_W': 'Average Power to Heat Exchanger (W)',
+                'heating_ave_power_to_building_W': 'Average Power to Building (W)'
             },
             
             'Cooling System - Key Performance': {
-                'cooling_system_cop': 'Cooling System COP',
-                'cooling_annual_energy_building_GWhth': 'Cooling Annual Energy to Building (GWhth)',
-                'cooling_annual_elec_energy_GWhe': 'Cooling Annual Electrical Energy (GWhe)',
-                'cooling_co2_emissions_per_thermal': 'Cooling CO₂ Emissions per Thermal (gCO₂/kWhth)',
-                'cooling_ave_power_to_building_MW': 'Cooling Average Power to Building (MW)',
-                'cooling_elec_energy_per_thermal': 'Cooling Electrical Energy per Thermal (kWhe/kWhth)'
-            },
-            
-            'Cooling System - Energy & Storage': {
-                'cooling_total_energy_stored': 'Cooling Total Energy Stored (J)',
-                'cooling_stored_energy_recovered': 'Cooling Stored Energy Recovered (J)',
-                'cooling_annual_energy_aquifer_J': 'Cooling Annual Energy from Aquifer (J)',
-                'cooling_annual_energy_aquifer_kWhth': 'Cooling Annual Energy from Aquifer (kWhth)',
-                'cooling_annual_energy_aquifer_GWhth': 'Cooling Annual Energy from Aquifer (GWhth)',
-                'cooling_annual_energy_building_J': 'Cooling Annual Energy to Building (J)',
-                'cooling_annual_energy_building_kWhth': 'Cooling Annual Energy to Building (kWhth)',
-                'cooling_monthly_to_HX': 'Cooling Monthly Energy to HX (GWh/month)',
-                'cooling_monthly_to_building': 'Cooling Monthly Energy to Building (GWh/month)'
+                'cooling_system_cop': 'System COP',
+                'cooling_annual_energy_building_GWhth': 'Annual Energy to Building (GWhth)',
+                'cooling_monthly_to_building': 'Average Monthly to Building (GWhth)',
+                'cooling_annual_elec_energy_GWhe': 'Annual Electricity (GWhe)',
+                'cooling_annual_energy_building_J': 'Annual Energy to Building (J)',
+                'cooling_annual_energy_building_kWhth': 'Annual Energy to Building (kWhth)',
+                'cooling_annual_elec_energy_J': 'Annual Electricity (J)',
+                'cooling_annual_elec_energy_MWhe': 'Annual Electricity (MWhe)',
+                'cooling_co2_emissions_per_thermal': 'CO₂ Emissions per Unit Thermal (gCO₂/kWhth)',
+                'cooling_elec_energy_per_thermal': 'Electrical Energy per Unit Thermal (kWhe/kWhth)'
             },
             
             'Cooling System - Flow & Temperature': {
-                'cooling_total_flow_rate_m3hr': 'Cooling Total Flow Rate (m³/hr)',
-                'cooling_total_flow_rate_ls': 'Cooling Total Flow Rate (l/s)',
-                'cooling_total_flow_rate_m3s': 'Cooling Total Flow Rate (m³/s)',
-                'cooling_ave_production_temp': 'Cooling Average Production Temperature (°C)',
-                'cooling_ave_temp_change_across_HX': 'Cooling Average Temperature Change Across HX (°C)',
-                'cooling_temp_change_induced_HP': 'Cooling Temperature Change Induced by HP (°C)'
+                'cooling_total_flow_rate_ls': 'Total Flow Rate (l/s)',
+                'cooling_target_avg_flowrate_pd': 'Flow Rate per Borehole (m³/hr)',
+                'cooling_ave_production_temp': 'Average Production Temperature (°C)',
+                'cooling_total_flow_rate_m3hr': 'Total Flow Rate (m³/hr)',
+                'cooling_total_flow_rate_m3s': 'Total Flow Rate (m³/s)',
+                'cooling_ave_temp_change_across_HX': 'Average Temperature Change Across Heat Exchanger (°C)',
+                'cooling_temp_change_induced_HP': 'Temperature Change Induced by Heat Pump (°C)'
             },
             
-            'Cooling System - Power': {
-                'cooling_ave_power_to_HX_W': 'Cooling Average Power to HX (W)',
-                'cooling_ave_power_to_HX_MW': 'Cooling Average Power to HX (MW)',
-                'cooling_ave_power_to_building_W': 'Cooling Average Power to Building (W)'
+            'Cooling System - Energy & Storage': {
+                'cooling_total_energy_stored': 'Annual Energy Stored (J)',
+                'cooling_stored_energy_recovered': 'Annual Energy Recovered (J)',
+                'cooling_annual_energy_aquifer_GWhth': 'Annual Energy Produced from Aquifer (GWhth)',
+                'cooling_monthly_to_HX': 'Monthly Energy to Heat Exchanger (GWhth)',
+                'cooling_annual_energy_aquifer_J': 'Annual Energy Produced from Aquifer (J)',
+                'cooling_annual_energy_aquifer_kWhth': 'Annual Energy Produced from Aquifer (kWhth)'
             },
             
             'Cooling System - Heat Pump & Electrical': {
-                'cooling_heat_pump_COP': 'Cooling Heat Pump COP',
-                'cooling_ehp': 'Cooling Heat Pump Factor (ehp)',
-                'cooling_elec_energy_hydraulic_pumps': 'Cooling Electrical Energy to Hydraulic Pumps (J)',
-                'cooling_elec_energy_HP': 'Cooling Electrical Energy to Heat Pump (J)',
-                'cooling_annual_elec_energy_J': 'Cooling Annual Electrical Energy (J)',
-                'cooling_annual_elec_energy_MWhe': 'Cooling Annual Electrical Energy (MWhe)'
+                'cooling_heat_pump_COP': 'Heat Pump COP',
+                'cooling_elec_energy_HP': 'Annual Energy to Heat Pump (J)',
+                'cooling_elec_energy_hydraulic_pumps': 'Annual Energy to Hydraulic Pump (J)',
+                'cooling_ehp': 'Heat Pump Factor (ehp)'
+            },
+            
+            'Cooling System - Power': {
+                'cooling_ave_power_to_HX_MW': 'Average Power to Heat Exchanger (MW)',
+                'cooling_ave_power_to_building_MW': 'Average Power to Building (MW)',
+                'cooling_ave_power_to_HX_W': 'Average Power to Heat Exchanger (W)',
+                'cooling_ave_power_to_building_W': 'Average Power to Building (W)'
             },
             
             'System Balance': {
@@ -251,7 +252,22 @@ class ATESVisualizer:
             return
         
         # Parameter selection
-        default_selection = available_params[:3] if len(available_params) >= 3 else available_params
+        if 'Key Performance' in selected_group:
+            default_count = 4
+        elif 'Energy & Storage' in selected_group:
+            default_count = 4
+        elif 'Flow & Temperature' in selected_group:
+            default_count = 3 if 'Cooling' in selected_group else 2
+        elif 'Heat Pump & Electrical' in selected_group:
+            default_count = 3
+        elif 'Power' in selected_group:
+            default_count = 2
+        elif 'System Balance' in selected_group:
+            default_count = 2
+        else:
+            default_count = 3
+
+        default_selection = available_params[:default_count] if len(available_params) >= default_count else available_params
         selected_params = st.multiselect(
             "Select Parameters to Display",
             available_params,
@@ -668,7 +684,7 @@ class ATESVisualizer:
             fig.add_vline(x=median_val, line_dash="dash", line_color="blue",
                         annotation_text=f"Median: {median_val:.3f}")
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
             
             # Show statistical summary
             st.markdown("### Statistical Summary")
@@ -888,7 +904,7 @@ class ATESVisualizer:
                         fig.add_vline(x=mean_val, line_dash="dash", line_color="red", line_width=1)
                         
                         with plot_cols[j]:
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width="stretch")
                             
                             # Statistics below chart
                             col_stat1, col_stat2 = st.columns(2)
@@ -940,7 +956,7 @@ class ATESVisualizer:
             xaxis={'tickangle': 45}
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     
     def _plot_violin_plots(self, selected_params: List[str], group_params: Dict[str, str], group_name: str):
         """
@@ -980,7 +996,7 @@ class ATESVisualizer:
             xaxis={'tickangle': 45}
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     def _plot_combined_distributions(self, selected_params: List[str], group_params: Dict[str, str], group_name: str):
         """Plot combined histogram, box plot, and Q-Q plot for each parameter"""
@@ -1061,7 +1077,7 @@ class ATESVisualizer:
                 showlegend=False
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     def _show_distribution_statistics(self, selected_params: List[str], group_params: Dict[str, str]):
         """Show summary statistics for selected parameters"""
@@ -1094,7 +1110,7 @@ class ATESVisualizer:
                 else:
                     stats_df[col] = stats_df[col].round(4)
             
-            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+            st.dataframe(stats_df, width="stretch", hide_index=True)
 
     def _render_risk_analysis(self, available_params: List[str], group_params: Dict[str, str], group_name: str):
         """Render risk analysis with performance thresholds"""
@@ -1140,7 +1156,7 @@ class ATESVisualizer:
             risk_df = pd.DataFrame(risk_data)
             
             # Display risk table
-            st.dataframe(risk_df.round(1), use_container_width=True, hide_index=True)
+            st.dataframe(risk_df.round(1), width="stretch", hide_index=True)
             
             # Risk visualization
             fig = go.Figure()
@@ -1169,7 +1185,7 @@ class ATESVisualizer:
                 xaxis={'tickangle': 45}
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.info("Risk analysis not available for selected parameters")
 
@@ -1223,7 +1239,7 @@ class ATESVisualizer:
                 percentile_df[col] = percentile_df[col].round(4)
             
             # Display table
-            st.dataframe(percentile_df, use_container_width=True, hide_index=True)
+            st.dataframe(percentile_df, width="stretch", hide_index=True)
             
             # Percentile chart
             self._plot_percentile_chart(percentile_df, selected_percentiles, group_name)
@@ -1278,7 +1294,7 @@ class ATESVisualizer:
                 ci_df[col] = ci_df[col].round(4)
             
             # Display table
-            st.dataframe(ci_df, use_container_width=True, hide_index=True)
+            st.dataframe(ci_df, width="stretch", hide_index=True)
             
             # Confidence interval plot
             self._plot_confidence_intervals(ci_df, confidence_level, group_name)
@@ -1313,7 +1329,7 @@ class ATESVisualizer:
             hovermode='x unified'
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     def _plot_confidence_intervals(self, ci_df: pd.DataFrame, confidence_level: int, group_name: str):
         """
@@ -1356,7 +1372,7 @@ class ATESVisualizer:
             xaxis={'tickangle': 45}
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     def _show_sensitivity_table(self, sensitivity_df: pd.DataFrame, selected_output: str):
         """
@@ -1383,7 +1399,7 @@ class ATESVisualizer:
             'Abs_Spearman': 'Abs. Spearman'
         })
         
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_df, width="stretch", hide_index=True)
 
     def _plot_sensitivity_bar_chart(self, sensitivity_df: pd.DataFrame, selected_output: str, 
                                  correlation_type: str, n_top_params: int):
@@ -1431,7 +1447,7 @@ class ATESVisualizer:
             textposition='outside'
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     def _plot_tornado_chart(self, sensitivity_df: pd.DataFrame, selected_output: str, 
                          correlation_type: str, n_top_params: int):
@@ -1488,7 +1504,7 @@ class ATESVisualizer:
         # Add vertical line at x=0
         fig.add_vline(x=0, line_dash="dash", line_color="black", opacity=0.5)
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     def _plot_overall_parameter_importance(self):
         """
@@ -1552,7 +1568,7 @@ class ATESVisualizer:
             yaxis={'categoryorder': 'total ascending'}
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         
         # Show detailed ranking table
         if st.checkbox("Show Detailed Ranking Table"):
@@ -1563,7 +1579,7 @@ class ATESVisualizer:
             for col in numeric_cols:
                 display_ranking[col] = display_ranking[col].round(4)
             
-            st.dataframe(display_ranking, use_container_width=True, hide_index=True)
+            st.dataframe(display_ranking, width="stretch", hide_index=True)
 
     def _plot_correlation_matrix(self, selected_params: List[str], corr_method: str):
         """
@@ -1604,7 +1620,7 @@ class ATESVisualizer:
                 )
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
             
             # Show correlation statistics
             if st.checkbox("Show Correlation Statistics"):
@@ -1629,7 +1645,7 @@ class ATESVisualizer:
                 corr_pairs_df['Abs Correlation'] = corr_pairs_df['Abs Correlation'].round(4)
                 
                 st.markdown("**Strongest Correlations:**")
-                st.dataframe(corr_pairs_df.head(10), use_container_width=True, hide_index=True)
+                st.dataframe(corr_pairs_df.head(10), width="stretch", hide_index=True)
         
         except Exception as e:
             st.error(f"Error calculating correlation matrix: {str(e)}")
@@ -2139,7 +2155,7 @@ def render_summary_report_tab():
         
         if performance_data:
             perf_df = pd.DataFrame(performance_data)
-            st.dataframe(perf_df, use_container_width=True, hide_index=True)
+            st.dataframe(perf_df, width="stretch", hide_index=True)
         else:
             st.info("No valid performance indicators to display")
 
@@ -2165,7 +2181,7 @@ def render_summary_report_tab():
             
             if influence_data:
                 influence_df = pd.DataFrame(influence_data)
-                st.dataframe(influence_df, use_container_width=True, hide_index=True)
+                st.dataframe(influence_df, width="stretch", hide_index=True)
         
         # sensitivity statistics
         if "parameter_influence_summary" in sens_summary:
@@ -2195,7 +2211,7 @@ def render_summary_report_tab():
             file_name=f"ates_comprehensive_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             mime="application/json",
             key="download_json_report",
-            use_container_width=True
+            width="stretch"
         )
     
     with col2:
@@ -2207,7 +2223,7 @@ def render_summary_report_tab():
             file_name=f"ates_monte_carlo_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv",
             key="download_csv_data",
-            use_container_width=True
+            width="stretch"
         )
     
     with col3:
@@ -2229,14 +2245,14 @@ def render_summary_report_tab():
                 file_name=f"ates_sensitivity_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv",
                 key="download_sensitivity_csv",
-                use_container_width=True
+                width="stretch"
             )
         else:
             st.button(
                 "Download Sensitivity Data (CSV)",
                 disabled=True,
                 help="No sensitivity data available",
-                use_container_width=True
+                width="stretch"
             )
 
 

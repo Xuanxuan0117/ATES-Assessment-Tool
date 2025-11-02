@@ -61,11 +61,11 @@ def main():
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("Go to Probabilistic Setup", use_container_width=True, type="primary", key="goto_prob_main"):
+                if st.button("Go to Probabilistic Setup", width="stretch", type="primary", key="goto_prob_main"):
                     st.session_state['current_page'] = 'Probabilistic Setup'
                     st.rerun()
             with col2:
-                if st.button("Back to Calculator", use_container_width=True, key="goto_calc_main"):
+                if st.button("Back to Calculator", width="stretch", key="goto_calc_main"):
                     st.session_state['current_page'] = 'Quick Look'
                     st.rerun()
             return
