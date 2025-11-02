@@ -2,9 +2,6 @@
 ATES calculator based on spreadsheet
 """
 import warnings
-#1. More concise with less code
-#2. Automatically compare and print objects.
-# Optional parameters (default, field())
 from dataclasses import dataclass 
 from typing import Dict, Any
 
@@ -139,9 +136,7 @@ class ATESParameters:
         # B. System Operational Parameters 
         if self.heating_target_avg_flowrate_pd <= 0:
             raise ValueError(f"Heating target average flowrate per doublet must be positive. Got {self.heating_target_avg_flowrate_pd}.")
-        if not (0 <= self.tolerance_in_energy_balance <= 1):
-            raise ValueError(f"Energy balance tolerance must be between 0 and 1. Got {self.tolerance_in_energy_balance}.")
-
+        
          # Heating number of doublets should be integer and non‑negative
         if not isinstance(self.heating_number_of_doublets, int):
             raise ValueError(f"Heating number of doublets must be an integer. Got {self.heating_number_of_doublets}.")
@@ -245,6 +240,7 @@ class ATESResults:
     #Cooling output(N-Column with 30 parameters) 
     cooling_total_energy_stored: float = 0.0             # N3 - (-) Total energy stored during cooling (J)
     cooling_stored_energy_recovered: float = 0.0         # N4 - (-) Stored energy recovered during cooling (J)
+    cooling_target_avg_flowrate_pd: float = 0.0          # G10 - qb,c Target average flow rate per doublet for cooling (m³/hr)
     cooling_total_flow_rate_m3hr: float = 0.0            # N6 - Vp Total flow rate during cooling (m³/hr)
     cooling_total_flow_rate_ls: float = 0.0              # N7 - Vp Total flow rate during cooling (l/s)
     cooling_total_flow_rate_m3s: float = 0.0             # N8 - Vp Total flow rate during cooling (m³/s)
@@ -473,6 +469,9 @@ class ATESCalculator:
         """
         p = self.params
         r = self.results
+
+        # Store the cooling target flow rate from parameters
+        r.cooling_target_avg_flowrate_pd = p.cooling_target_avg_flowrate_pd
 
         # N3 = D6*D21*(D3-D27)
         r.cooling_total_energy_stored = (

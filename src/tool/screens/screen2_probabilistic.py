@@ -112,76 +112,21 @@ def initialize_distributions() -> Dict[str, Dict[str, Any]]:
     return distributions
 
 def sync_from_deterministic():
-    """sync logic"""
-    updated_params = []
-    
+    """Sync parameter values from deterministic calculation to probabilistic setup"""
     for param_name in st.session_state.param_distributions:
         if hasattr(st.session_state.ates_params, param_name):
             current_value = getattr(st.session_state.ates_params, param_name)
             dist = st.session_state.param_distributions[param_name]
             
-          
-            if dist['type'] == 'single_value':
-                old_value = dist.get('value', 0)
-            elif dist['type'] == 'triangular':
-                old_value = dist.get('most_likely', 0)
-            elif dist['type'] in ['normal', 'lognormal']:
-                old_value = dist.get('mean', 0)
-            elif dist['type'] == 'range':
-                old_value = (dist.get('min', 0) + dist.get('max', 0)) / 2
-            else:
-                old_value = dist.get('value', 0)
+            dist['value'] = current_value
+            dist['mean'] = current_value
+            dist['most_likely'] = current_value
             
-            if abs(old_value - current_value) > 1e-6:  
-                updated_params.append(param_name)
-                
-                
-                if dist['type'] == 'single_value':
-                    dist['value'] = current_value
-                elif dist['type'] == 'triangular':
-                   
-                    old_range = dist.get('max', 0) - dist.get('min', 0)
-                    if old_range > 0:
-                        ratio = old_range / old_value if old_value != 0 else 0.4
-                        new_range = current_value * ratio
-                        dist['min'] = current_value - new_range / 2
-                        dist['max'] = current_value + new_range / 2
-                    else:
-                        dist['min'] = current_value * 0.8
-                        dist['max'] = current_value * 1.2
-                    dist['most_likely'] = current_value
-                elif dist['type'] in ['normal', 'lognormal']:
-                   
-                    old_std = dist.get('std', 0)
-                    if old_value != 0:
-                        std_ratio = old_std / old_value
-                        dist['std'] = current_value * std_ratio
-                    else:
-                        dist['std'] = max(current_value * 0.1, 0.01)
-                    dist['mean'] = current_value
-                elif dist['type'] == 'range':
-                    
-                    old_min = dist.get('min', 0)
-                    old_max = dist.get('max', 0)
-                    if old_value != 0:
-                        min_ratio = old_min / old_value
-                        max_ratio = old_max / old_value
-                        dist['min'] = current_value * min_ratio
-                        dist['max'] = current_value * max_ratio
-                    else:
-                        dist['min'] = current_value * 0.9
-                        dist['max'] = current_value * 1.1
-                
-                
-                dist['value'] = current_value
-                dist['mean'] = current_value
-                dist['most_likely'] = current_value
-    
-    if updated_params:
-        
-        st.session_state.stable_param_values = {}
-        st.session_state.param_config_version += 1
-        st.success(f"Synchronized {len(updated_params)} parameters from Quick Look")
+            if dist['min'] == dist['max'] or abs(dist['min'] - dist['max']) < 1e-6:
+                dist['min'] = current_value * 0.8
+                dist['max'] = current_value * 1.2
+            
+            dist['std'] = max(current_value * 0.1, 0.01)
 
 def sync_to_deterministic():
     """
@@ -208,9 +153,17 @@ def sync_to_deterministic():
     if updated_count > 0:
         st.session_state.ates_params.__post_init__()
 
+        st.session_state['results'] = None
+        if '_last_calculation_time' in st.session_state:
+            del st.session_state['_last_calculation_time']
+        
+        return updated_count
+    
+    return 0
+
 def render_parameter_config(param_name: str, param_label: str):
     """
-    Render parameter configuration interface 
+    Render parameter configuration interface
     """
     dist_config = st.session_state.param_distributions[param_name]
     current_type = dist_config.get('type', 'single_value')
@@ -235,50 +188,11 @@ def render_parameter_config(param_name: str, param_label: str):
             }[x]
         )
         
-        
         if new_dist_type != current_type:
-            
-            if current_type == 'single_value':
-                center_value = dist_config.get('value', 14.0)
-            elif current_type == 'triangular':
-                center_value = dist_config.get('most_likely', 14.0)
-            elif current_type in ['normal', 'lognormal']:
-                center_value = dist_config.get('mean', 14.0)
-            elif current_type == 'range':
-                center_value = (dist_config.get('min', 14.0) + dist_config.get('max', 14.0)) / 2
-            else:
-                center_value = dist_config.get('value', 14.0)
-            
-           
             dist_config['type'] = new_dist_type
-            
-            if new_dist_type == 'single_value':
-                dist_config['value'] = center_value
-            elif new_dist_type == 'range':
-                
-                dist_config['min'] = center_value * 0.9
-                dist_config['max'] = center_value * 1.1
-            elif new_dist_type == 'triangular':
-                dist_config['min'] = center_value * 0.8
-                dist_config['most_likely'] = center_value
-                dist_config['max'] = center_value * 1.2
-            elif new_dist_type in ['normal', 'lognormal']:
-                dist_config['mean'] = center_value
-                dist_config['std'] = max(center_value * 0.1, 0.01)
-                if new_dist_type == 'lognormal':
-                    dist_config['location'] = 0.0
-                    dist_config['use_log_params'] = False
-            
             from tool.utils.state_management import mark_case_modified
             mark_case_modified()
             st.session_state.param_config_version = version + 1
-            
-            
-            keys_to_remove = [k for k in st.session_state.stable_param_values.keys() 
-                             if k.startswith(f"{param_name}_v")]
-            for k in keys_to_remove:
-                del st.session_state.stable_param_values[k]
-            
             st.rerun()
         
         render_distribution_params_stable(param_name, dist_config, new_dist_type, version)
@@ -289,20 +203,13 @@ def render_parameter_config(param_name: str, param_label: str):
 
 def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_type: str, version: int):
     """
-    Render distribution specific parameters 
+    Render distribution specific parameters
     """
     stable_key = f"{param_name}_v{version}"
-    
-   
     if stable_key not in st.session_state.stable_param_values:
         st.session_state.stable_param_values[stable_key] = dist_config.copy()
     
     stable_config = st.session_state.stable_param_values[stable_key]
-    
-    
-    for key in dist_config:
-        if key not in stable_config or stable_config[key] != dist_config[key]:
-            stable_config[key] = dist_config[key]
     
     def update_stable_config(key: str, value: Any):
         """
@@ -442,87 +349,110 @@ def render_parameter_groups_tabs():
     Render parameter configuration in organized tabs
     """
     tab1, tab2, tab3, tab4 = st.tabs([
-        "Physical Parameters", 
-        "Operational Parameters", 
-        "COP Parameters", 
-        "Cooling Parameters"
+        "Physical Parameters",           # Section A
+        "Demand Parameters",              # Section B
+        "ATES System Operation",          # Section C
+        "Heat Pump and Carbon Intensity"  # Section D
     ])
     
     with tab1:
         render_physical_parameters()
     
     with tab2:
-        render_operational_parameters()
+        render_demand_parameters()  
     
     with tab3:
-        render_cop_parameters()
+        render_operational_parameters()  
     
     with tab4:
-        render_cooling_parameters()
+        render_heatpump_parameters()  
 
 def render_physical_parameters():
     """
-    Render physical parameters section
+    Render physical parameters section (Section A)
     """
-    st.subheader("Basic Physical Parameters")
+    st.subheader("Physical Parameters")
     
     physical_params = [
         'aquifer_temp', 
         'water_density', 
-        'water_specific_heat_capacity',
-        'thermal_recovery_factor'
+        'water_specific_heat_capacity'
     ]
     
     param_labels = {
         'aquifer_temp': 'Aquifer Temperature (°C)',
         'water_density': 'Water Density (kg/m³)',
-        'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
-        'thermal_recovery_factor': 'Thermal Recovery Factor (-)'
+        'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)'
     }
     
     for param in physical_params:
         if param in st.session_state.param_distributions:
             render_parameter_config(param, param_labels[param])
 
+def render_demand_parameters():
+    """
+    Render demand parameters section (Section B)
+    """
+    st.subheader("Demand Parameters")
+    
+    demand_params = [
+        'heating_months',
+        'heating_temp_to_building',
+        'cooling_months',
+        'cooling_temp_to_building'
+    ]
+    
+    param_labels = {
+        'heating_months': 'Heating Months',
+        'heating_temp_to_building': 'Building Heating Temperature (°C)',
+        'cooling_months': 'Cooling Months',
+        'cooling_temp_to_building': 'Building Cooling Temperature (°C)'
+    }
+    
+    for param in demand_params:
+        if param in st.session_state.param_distributions:
+            render_parameter_config(param, param_labels[param])
+
 def render_operational_parameters():
-    """Render operational parameters section"""
-    st.subheader("System Operational Parameters")
+    """
+    Render ATES system operational parameters section (Section C)
+    """
+    st.subheader("ATES System Operation")
     
     operational_params = [
         'heating_target_avg_flowrate_pd',
-        'tolerance_in_energy_balance',
         'heating_number_of_doublets',
-        'heating_months', 
-        'cooling_months', 
-        'pump_energy_density',
-        'heating_ave_injection_temp', 
-        'heating_temp_to_building'
+        'heating_ave_injection_temp',
+        'thermal_recovery_factor',
+        'tolerance_in_energy_balance',
+        'cooling_ave_injection_temp'
     ]
     
     param_labels = {
         'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
-        'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
         'heating_number_of_doublets': 'Number of Doublets (-)',
-        'heating_months': 'Heating Months',
-        'cooling_months': 'Cooling Months',
-        'pump_energy_density': 'Pump Energy Density (kJ/m³)',
         'heating_ave_injection_temp': 'Heating Injection Temperature (°C)',
-        'heating_temp_to_building': 'Building Heating Temperature (°C)'
+        'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+        'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
+        'cooling_ave_injection_temp': 'Cooling Injection Temperature (°C)'
     }
     
     for param in operational_params:
         if param in st.session_state.param_distributions:
             render_parameter_config(param, param_labels[param])
 
-def render_cop_parameters():
-    """Render COP parameters section"""
-    st.subheader("Heat Pump COP Parameters")
+def render_heatpump_parameters():
+    """
+    Render heat pump and carbon intensity parameters section (Section D)
+    """
+    st.subheader("Heat Pump and Carbon Intensity")
     
-    cop_params = [
-        'cop_param_a', 
-        'cop_param_b', 
-        'cop_param_c', 
-        'cop_param_d', 
+    heatpump_params = [
+        'cop_param_a',
+        'cop_param_b',
+        'cop_param_c',
+        'cop_param_d',
+        'pump_energy_density',
         'carbon_intensity'
     ]
     
@@ -531,30 +461,14 @@ def render_cop_parameters():
         'cop_param_b': 'COP Parameter B (-)',
         'cop_param_c': 'COP Parameter C (-)',
         'cop_param_d': 'COP Parameter D (-)',
+        'pump_energy_density': 'Pump Energy Density (kJ/m³)',
         'carbon_intensity': 'Carbon Intensity (gCO₂/kWh)'
     }
     
-    for param in cop_params:
+    for param in heatpump_params:
         if param in st.session_state.param_distributions:
             render_parameter_config(param, param_labels[param])
 
-def render_cooling_parameters():
-    """Render cooling parameters section"""
-    st.subheader("Cooling System Parameters")
-    
-    cooling_params = [
-        'cooling_ave_injection_temp', 
-        'cooling_temp_to_building'
-    ]
-    
-    param_labels = {
-        'cooling_ave_injection_temp': 'Cooling Injection Temperature (°C)',
-        'cooling_temp_to_building': 'Building Cooling Temperature (°C)'
-    }
-    
-    for param in cooling_params:
-        if param in st.session_state.param_distributions:
-            render_parameter_config(param, param_labels[param])
 
 def render_distribution_preview(param_name: str, dist_config: Dict, param_label: str):
     """
@@ -587,18 +501,49 @@ def render_distribution_preview(param_name: str, dist_config: Dict, param_label:
         
         fig = px.histogram(
             x=samples,
-            nbins=30,
+            nbins=100,
             title=f"Distribution Preview: {param_label}",
-            labels={'x': param_label, 'y': 'Frequency'}
+            labels={'x': param_label, 'y': 'Probability'},
+            histnorm='probability'
+        )
+        
+        fig.update_traces(
+            marker=dict(
+                line=dict(color='black', width=1)
+            )
         )
         
         fig.update_layout(
             height=300,
             showlegend=False,
-            title_x=0.5
+            title={
+                'text': f"Distribution Preview: {param_label}",
+                'x': 0.5,
+                'xanchor': 'center',
+                'yanchor': 'top'
+            },
+            font=dict(color='black'),
+            margin=dict(l=60, r=30, t=50, b=50),  # add margin
+            xaxis=dict(
+                linecolor='black',
+                tickcolor='black',
+                ticks='outside',
+                showline=True,
+                mirror=True,
+            ),
+            yaxis=dict(
+                linecolor='black',
+                tickcolor='black',
+                ticks='outside',
+                showline=True,
+                mirror=True,
+                automargin=True  
+            ),
+            plot_bgcolor='white',
+            paper_bgcolor='white'
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -712,7 +657,7 @@ def render_enabled_parameters_summary():
         })
     
     summary_df = pd.DataFrame(summary_data)
-    st.dataframe(summary_df, use_container_width=True, hide_index=True)
+    st.dataframe(summary_df, width="stretch", hide_index=True)
 
 def render_monte_carlo_execution():
     """
@@ -722,7 +667,16 @@ def render_monte_carlo_execution():
     for name, dist in st.session_state.param_distributions.items():
         if dist['type'] != 'single_value':
             uncertain_params.append(name)
-
+    
+    # if uncertain_params:
+    #     st.info(f"Analysis will vary {len(uncertain_params)} uncertain parameters")
+        
+    #     st.write("**Parameters with uncertainty:**")
+    #     param_list = ", ".join([p.replace('_', ' ').title() for p in uncertain_params])
+    #     st.write(param_list)
+    # else:
+    #     st.info("Deterministic analysis - all parameters use fixed values")
+    
     validation_errors = validate_distribution_config()
     if validation_errors:
         st.error("Configuration errors:")
@@ -730,7 +684,7 @@ def render_monte_carlo_execution():
             st.error(f"• {error}")
         return
     
-    if st.button("Run Analysis", type="primary", use_container_width=True):
+    if st.button("Run Analysis", type="primary", width="stretch"):
         run_monte_carlo_analysis()
 
 def validate_distribution_config() -> List[str]:
@@ -760,80 +714,63 @@ def validate_distribution_config() -> List[str]:
     return errors
 
 def run_monte_carlo_analysis():
-    """
-    Execute Monte Carlo analysis with parameter samples saved
-    """
-    try:
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        # creating a monte carlo engine
-        mc_engine = ATESMonteCarloEngine(
-            st.session_state.ates_params,
-            st.session_state.mc_config
-        )
-        
-        # creating a progress callback
-        progress_callback = create_progress_callback(progress_bar, status_text)
-        
-        # generating parameter samples and saving
-        rng = np.random.default_rng(st.session_state.mc_config.seed)
-        parameter_samples = mc_engine._generate_parameter_samples(
-            st.session_state.param_distributions, rng
-        )
-        
-        # saving parameter samples to session state
-        st.session_state.parameter_samples = parameter_samples
-        
-        # recording start time
-        start_time = time.time()
-        
-        # run simulation
-        results_df = mc_engine.run_simulation(
-            st.session_state.param_distributions,
-            progress_callback
-        )
-        
-        # calculate computation time
-        computation_time = time.time() - start_time
-        
-        # storgae result
-        st.session_state.monte_carlo_results = results_df
-        st.session_state._last_mc_computation_time = computation_time
-        
-        # calculate sensitivity analysis
-        uncertain_params = {name: config for name, config in st.session_state.param_distributions.items() 
-                           if config['type'] != 'single_value'}
-        
-        if uncertain_params:
-            try:
-                sensitivity_results = mc_engine.calculate_sensitivity_analysis(parameter_samples)
-                st.session_state.sensitivity_results = sensitivity_results
-            except Exception as e:
-                st.warning(f"Sensitivity analysis failed: {str(e)}")
-                st.session_state.sensitivity_results = None
-        else:
-            st.session_state.sensitivity_results = None
+   """
+   Execute Monte Carlo analysis 
+   """
+   try:
+       progress_bar = st.progress(0)
+       status_text = st.empty()
+       
+       mc_engine = ATESMonteCarloEngine(
+           st.session_state.ates_params,
+           st.session_state.mc_config
+       )
+       
+       progress_callback = create_progress_callback(progress_bar, status_text)
+       
+       start_time = time.time()
+       results_df = mc_engine.run_simulation(
+           st.session_state.param_distributions,
+           progress_callback
+       )
+       computation_time = time.time() - start_time
+       
+       # Store results
+       st.session_state.monte_carlo_results = results_df
+       st.session_state._last_mc_computation_time = computation_time
+       
+       # Calculate sensitivity analysis if uncertain parameters exist
+       uncertain_params = {name: config for name, config in st.session_state.param_distributions.items() 
+                          if config['type'] != 'single_value'}
+       
+       if uncertain_params:
+           rng = np.random.default_rng(st.session_state.mc_config.seed)
+           parameter_samples = mc_engine._generate_parameter_samples(
+               st.session_state.param_distributions, rng
+           )
+           
+           try:
+               sensitivity_results = mc_engine.calculate_sensitivity_analysis(parameter_samples)
+               st.session_state.sensitivity_results = sensitivity_results
+           except Exception:
+               st.session_state.sensitivity_results = None
+       else:
+           st.session_state.sensitivity_results = None
 
-        # finish
-        st.session_state._mc_completed = True
-        
-        # clean progress
-        progress_bar.empty()
-        status_text.empty()
-        
-        # show success info
-        st.success("Monte Carlo analysis completed!")
+       # Set completion flag
+       st.session_state._mc_completed = True
+       
+       # Clean up progress indicators
+       progress_bar.empty()
+       status_text.empty()
+       
+       # Only show success message
+       st.success("Monte Carlo analysis completed!")
 
-        st.rerun()
+       st.rerun()
 
-    except Exception as e:
-        st.error(f"Monte Carlo analysis failed: {str(e)}")
-        # clean progress
-        if 'progress_bar' in locals():
-            progress_bar.empty()
-        if 'status_text' in locals():
-            status_text.empty()
+   except Exception as e:
+       st.error(f"Monte Carlo analysis failed: {str(e)}")
 
 def display_monte_carlo_results():
    """
@@ -864,8 +801,40 @@ def display_monte_carlo_results():
        st.subheader("Quick Results Preview")
        
        successful_results = results_df[results_df['success'] == True] if 'success' in results_df.columns else results_df
-       preview_params = ['heating_system_cop', 'cooling_system_cop', 'volume_balance_ratio', 'energy_balance_ratio', 'heating_annual_energy_building_GWhth', 'cooling_annual_energy_building_GWhth',
-                         'heating_co2_emissions_per_thermal', 'cooling_co2_emissions_per_thermal', 'heating_annual_elec_energy_GWhe', 'cooling_annual_elec_energy_GWhe']
+   
+       preview_params = [
+           'heating_system_cop',
+           'cooling_system_cop',
+           'energy_balance_ratio',
+           'volume_balance_ratio',
+           'heating_annual_energy_building_GWhth',
+           'cooling_annual_energy_building_GWhth',
+           'heating_monthly_to_building',
+           'cooling_monthly_to_building',
+           'heating_ave_power_to_building_MW',
+           'cooling_ave_power_to_building_MW',
+           'heating_annual_elec_energy_GWhe',
+           'cooling_annual_elec_energy_GWhe',
+           'heating_co2_emissions_per_thermal',
+           'cooling_co2_emissions_per_thermal'
+       ]
+       
+       param_display_names = {
+           'heating_system_cop': 'Heating SCOP',
+           'cooling_system_cop': 'Cooling SCOP',
+           'energy_balance_ratio': 'Energy Balance Ratio',
+           'volume_balance_ratio': 'Volume Balance Ratio',
+           'heating_annual_energy_building_GWhth': 'Annual Heating Energy to Building (GWhth)',
+           'cooling_annual_energy_building_GWhth': 'Annual Cooling Energy to Building (GWhth)',
+           'heating_monthly_to_building': 'Average Monthly Heating to Building (GWhth)',
+           'cooling_monthly_to_building': 'Average Monthly Cooling to Building (GWhth)',
+           'heating_ave_power_to_building_MW': 'Average Heating Power (MWth)',
+           'cooling_ave_power_to_building_MW': 'Average Cooling Power (MWth)',
+           'heating_annual_elec_energy_GWhe': 'Annual Electricity for Heating (GWhe)',
+           'cooling_annual_elec_energy_GWhe': 'Annual Electricity for Cooling (GWhe)',
+           'heating_co2_emissions_per_thermal': 'CO₂ Emissions per Unit Heating (g/kWhth)',
+           'cooling_co2_emissions_per_thermal': 'CO₂ Emissions per Unit Cooling (g/kWhth)'
+       }
        
        preview_data = []
        for param in preview_params:
@@ -874,7 +843,7 @@ def display_monte_carlo_results():
                data = data[np.isfinite(data)] 
                if len(data) > 0:
                    preview_data.append({
-                       'Parameter': param.replace('_', ' ').title(),
+                       'Parameter': param_display_names.get(param, param.replace('_', ' ').title()),
                        'Mean': f"{data.mean():.3f}",
                        'Std': f"{data.std():.3f}",
                        'P10': f"{data.quantile(0.10):.3f}",
@@ -884,7 +853,7 @@ def display_monte_carlo_results():
        
        if preview_data:
            preview_df = pd.DataFrame(preview_data)
-           st.dataframe(preview_df, use_container_width=True, hide_index=True)
+           st.dataframe(preview_df, width="stretch", hide_index=True)
 
 def render_monte_carlo_export():
     """
@@ -892,10 +861,10 @@ def render_monte_carlo_export():
     """
     st.markdown("### Raw Monte Carlo Data Export")
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("Export Full Raw Data", use_container_width=True):
+        if st.button("Export Full Raw Data", width="stretch"):
             results_csv = st.session_state.monte_carlo_results.to_csv(index=False, encoding='utf-8-sig')
             
             app_state = get_app_state()
@@ -908,11 +877,11 @@ def render_monte_carlo_export():
                 file_name=f"{clean_case_name}_monte_carlo_raw_{time.strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv",
                 key="download_full_mc_csv",
-                use_container_width=True
+                width="stretch"
             )
     
     with col2:
-        if st.button("Export Key Results Only", use_container_width=True):
+        if st.button("Export Key Results Only", width="stretch"):
             
             key_columns = [
                 'iteration', 'success',
@@ -940,34 +909,8 @@ def render_monte_carlo_export():
                 file_name=f"{clean_case_name}_monte_carlo_key_{time.strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv",
                 key="download_key_mc_csv",
-                use_container_width=True
+                width="stretch"
             )
-    
-    with col3:  
-        if st.button("Export Input + Output Data", use_container_width=True):
-            # combine input and output
-            if 'parameter_samples' in st.session_state:
-                input_data = st.session_state.parameter_samples
-                output_data = st.session_state.monte_carlo_results
-                
-                # combine results
-                combined_data = pd.concat([input_data, output_data], axis=1)
-                combined_csv = combined_data.to_csv(index=False, encoding='utf-8-sig')
-                
-                app_state = get_app_state()
-                case_name = app_state.get_case_name()
-                clean_case_name = app_state._clean_filename(case_name)
-                
-                st.download_button(
-                    label="Download Input+Output CSV",
-                    data=combined_csv,
-                    file_name=f"{clean_case_name}_complete_data_{time.strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv",
-                    key="download_complete_csv",
-                    use_container_width=True
-                )
-            else:
-                st.error("Parameter samples not available")
 
 def reset_all_distributions():
     """
@@ -979,7 +922,7 @@ def reset_all_distributions():
     
     st.session_state.param_distributions = initialize_distributions()
     
-    # Clear all analysis results
+    # Critical fix: Clear all analysis results
     analysis_keys = [
         'monte_carlo_results',
         'sensitivity_results', 
@@ -1021,7 +964,7 @@ def main():
     
     with col1:
         # Button to import parameter values from deterministic calculation
-        if st.button("Sync FROM Quick Look", use_container_width=True,
+        if st.button("Sync FROM Quick Look", width="stretch",
                      help="Import parameter values from deterministic calculation"):
             sync_from_deterministic()  # Import values from Quick Look screen
             st.session_state.param_config_version = st.session_state.get('param_config_version', 0) + 1  # Update version
@@ -1031,14 +974,14 @@ def main():
     
     with col2:
         # Button to export representative values to deterministic calculation
-        if st.button("Sync TO Quick Look", use_container_width=True,
+        if st.button("Sync TO Quick Look", width="stretch",
                      help="Export representative values to deterministic calculation"):
             sync_to_deterministic()  # Export values to Quick Look screen
             st.success("Synchronized to Quick Look")
     
     with col3:
         # Button to reset all parameters to their default values
-        if st.button("Reset All", use_container_width=True,
+        if st.button("Reset All", width="stretch",
                      help="Reset all parameters to default values"):
             reset_all_distributions()  # Reset all probability distributions
             st.success("All parameters reset to defaults")

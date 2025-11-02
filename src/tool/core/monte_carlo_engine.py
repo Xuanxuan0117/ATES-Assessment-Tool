@@ -278,9 +278,10 @@ class ATESMonteCarloEngine:
             'heating_elec_energy_per_thermal': float(result.heating_elec_energy_per_thermal),                    # K40
             'heating_co2_emissions_per_thermal': float(result.heating_co2_emissions_per_thermal),                # K41
             
-            # COOLING OUTPUTS (N Column) - 30 parameters
+            # COOLING OUTPUTS (N Column) - 30 parameters + 1
             'cooling_total_energy_stored': float(result.cooling_total_energy_stored),                            # N3
             'cooling_stored_energy_recovered': float(result.cooling_stored_energy_recovered),                    # N4
+            'cooling_target_avg_flowrate_pd': float(result.cooling_target_avg_flowrate_pd),                      # G10 # type: ignore
             'cooling_total_flow_rate_m3hr': float(result.cooling_total_flow_rate_m3hr),                          # N6
             'cooling_total_flow_rate_ls': float(result.cooling_total_flow_rate_ls),                              # N7
             'cooling_total_flow_rate_m3s': float(result.cooling_total_flow_rate_m3s),                            # N8
@@ -403,6 +404,7 @@ class ATESMonteCarloEngine:
             'heating_direct_mode': False,
             
             'cooling_system_cop': np.nan,
+            'cooling_target_avg_flowrate_pd': np.nan,
             'cooling_annual_energy_building_GWhth': np.nan,
             'cooling_annual_elec_energy_GWhe': np.nan,
             'cooling_co2_emissions_per_thermal': np.nan,
