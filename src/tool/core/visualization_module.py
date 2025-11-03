@@ -272,7 +272,7 @@ class ATESVisualizer:
             "Select Parameters to Display",
             available_params,
             default=default_selection,
-            format_func=lambda x: group_params[x],
+            format_func=lambda x: group_params.get(x,str(x)),
             key="dist_params"
         )
         
@@ -479,7 +479,7 @@ class ATESVisualizer:
             data = data[np.isfinite(data)]
             
             if len(data) == 0:
-                st.warning(f"No finite data available for {group_params[param]}")
+                st.warning(f"No finite data available for {group_params.get(param, param)}")
                 return
             
             # Check if we had infinite values and inform user
@@ -556,7 +556,7 @@ class ATESVisualizer:
                 # Configure layout with proper dual Y-axis 
                 fig.update_layout(
                         title={
-                        'text': f"Distribution: {group_params[param]}",
+                        'text': f"Distribution: {group_params.get(param, param)}",
                         'x': 0.5,
                         'xanchor': 'center',
                         'yanchor': 'top'
@@ -564,7 +564,7 @@ class ATESVisualizer:
                     height=500,
                     font=dict(color='black'),  
                     xaxis=dict(
-                        title=group_params[param],
+                        title=group_params.get(param, param),
                         linecolor='black',     
                         tickcolor='black',    
                         ticks='outside',      
@@ -648,7 +648,7 @@ class ATESVisualizer:
                 
                 fig.update_layout(
                     title={
-                        'text': f"Distribution: {group_params[param]}",
+                        'text': f"Distribution: {group_params.get(param, param)}",
                         'x': 0.5,
                         'xanchor': 'center',
                         'yanchor': 'top'
@@ -656,7 +656,7 @@ class ATESVisualizer:
                     height=500,
                     font=dict(color='black'),  
                     xaxis=dict(
-                        title=group_params[param],
+                        title=group_params.get(param, param),
                         linecolor='black',     
                         tickcolor='black',     
                         ticks='outside',      
@@ -716,7 +716,7 @@ class ATESVisualizer:
                         
                         if len(data) == 0:
                             with plot_cols[j]:
-                                st.warning(f"No finite data for {group_params[param]}")
+                                st.warning(f"No finite data for {group_params.get(param, param)}")
                             continue
                         
                         # Check for infinite values
@@ -769,7 +769,7 @@ class ATESVisualizer:
                             # Configure layout 
                             fig.update_layout(
                                 title={
-                                    'text': group_params[param],
+                                    'text': group_params.get(param, param),
                                     'x': 0.5,
                                     'xanchor': 'center',
                                     'yanchor': 'top'
@@ -844,7 +844,7 @@ class ATESVisualizer:
                                     nbinsx=bins_count,
                                     marker=dict(
                                         color=self.group_colors.get(group_name, '#FF6B6B'),
-                                        line=dict(color='black', width=0.5)  # 黑色边框
+                                        line=dict(color='black', width=0.5)  
                                     ),
                                     opacity=0.7,
                                     histnorm='probability'
@@ -872,7 +872,7 @@ class ATESVisualizer:
                                     )
                             
                             fig.update_layout(
-                                title=group_params[param],
+                                title=group_params.get(param, param),
                                 height=350,
                                 title_x=0.5,
                                 title_font_size=12,
@@ -929,7 +929,7 @@ class ATESVisualizer:
             data = data[np.isfinite(data)]
             for value in data:
                 plot_data.append({
-                    'Parameter': group_params[param],
+                    'Parameter': group_params.get(param, param),
                     'Value': safe_float(value),  # Safe conversion
                     'param_key': param
                 })
@@ -969,7 +969,7 @@ class ATESVisualizer:
             data = data[np.isfinite(data)]
             for value in data:
                 plot_data.append({
-                    'Parameter': group_params[param],
+                    'Parameter': group_params.get(param, param),
                     'Value': safe_float(value)  # Safe conversion
                 })
         
@@ -1071,7 +1071,7 @@ class ATESVisualizer:
             )
             
             fig.update_layout(
-                title_text=f"{group_params[param]} - Comprehensive Analysis",
+                title_text=f"{group_params.get(param, param)} - Comprehensive Analysis",
                 title_x=0.5,
                 height=600,
                 showlegend=False
@@ -1089,7 +1089,7 @@ class ATESVisualizer:
             data = data[np.isfinite(data)]
             if len(data) > 0:
                 stats_data.append({
-                    'Parameter': group_params[param],
+                    'Parameter': group_params.get(param, param),
                     'Count': len(data),
                     'Mean': safe_float(data.mean()),
                     'Std Dev': safe_float(data.std()),
@@ -1145,7 +1145,7 @@ class ATESVisualizer:
                         acceptable = safe_float((data >= threshold['acceptable']).mean()) * 100
                     
                     risk_data.append({
-                        'Parameter': group_params[param],
+                        'Parameter': group_params.get(param, param),
                         'Excellent (%)': excellent,
                         'Good (%)': good,
                         'Acceptable (%)': acceptable,
@@ -1216,7 +1216,7 @@ class ATESVisualizer:
             
             if len(finite_data) > 0: 
                 row = {
-                    'Parameter': group_params[param],
+                    'Parameter': group_params.get(param, param),
                     'Mean': safe_float(finite_data.mean()),
                     'Std': safe_float(finite_data.std())
                 }
@@ -1276,7 +1276,7 @@ class ATESVisualizer:
                 upper_ci = safe_float(data.quantile(upper_percentile / 100))
                 
                 ci_data.append({
-                    'Parameter': group_params[param],
+                    'Parameter': group_params.get(param, param),
                     'Mean': mean,
                     'Std': std,
                     'Sample Size': n,
@@ -1425,7 +1425,6 @@ class ATESVisualizer:
             top_params,
             x='Formatted_Name',
             y=abs_corr_col,
-            title=f"Top {n_top_params} Most Influential Parameters - {self._format_parameter_name(selected_output)}",
             labels={
                 'Formatted_Name': 'Input Parameters',
                 abs_corr_col: f'Absolute {correlation_type} Correlation'
@@ -1435,7 +1434,12 @@ class ATESVisualizer:
         )
         
         fig.update_layout(
-            title_x=0.5,
+            title={
+                'text': f"Top {n_top_params} Most Influential Parameters - {self._format_parameter_name(selected_output)}",
+                'x': 0.5,
+                'xanchor': 'center',
+                'yanchor': 'top'
+            },
             height=500,
             showlegend=False,
             xaxis={'tickangle': 45}
@@ -1493,8 +1497,12 @@ class ATESVisualizer:
             ))
         
         fig.update_layout(
-            title=f"Tornado Chart - {self._format_parameter_name(selected_output)}",
-            title_x=0.5,
+            title={
+                'text': f"Tornado Chart - {self._format_parameter_name(selected_output)}",
+                'x': 0.5,
+                'xanchor': 'center',
+                'yanchor': 'top'
+            },
             height=max(400, n_top_params * 30),
             xaxis_title=f"{correlation_type} Correlation",
             yaxis_title="Input Parameters",
@@ -1553,7 +1561,6 @@ class ATESVisualizer:
             x='Mean_Importance',
             y='Parameter',
             orientation='h',
-            title="Overall Parameter Importance Ranking (Mean Absolute Correlation)",
             labels={
                 'Mean_Importance': 'Mean Absolute Correlation',
                 'Parameter': 'Input Parameters'
@@ -1563,7 +1570,12 @@ class ATESVisualizer:
         )
         
         fig.update_layout(
-            title_x=0.5,
+                title={
+                'text': "Overall Parameter Importance Ranking (Mean Absolute Correlation)",
+                'x': 0.5,
+                'xanchor': 'center',
+                'yanchor': 'top'
+            },
             height=max(400, n_display * 30),
             yaxis={'categoryorder': 'total ascending'}
         )
