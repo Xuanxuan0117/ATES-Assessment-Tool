@@ -273,7 +273,7 @@ class ATESVisualizer:
             available_params,
             default=default_selection,
             format_func=lambda x: group_params.get(x,str(x)),
-            key="dist_params"
+            key=f"dist_params_{selected_group.replace(' ', '_').replace('-', '_')}"  
         )
         
         if not selected_params:
