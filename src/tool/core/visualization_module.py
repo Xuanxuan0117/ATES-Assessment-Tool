@@ -944,13 +944,17 @@ class ATESVisualizer:
             plot_df,
             x='Parameter',
             y='Value',
-            title=f"{group_name} - Box Plot Analysis",
             color='Parameter',
             color_discrete_sequence=[self.group_colors[group_name]] * len(selected_params)
         )
         
         fig.update_layout(
-            title_x=0.5,
+            title={
+                'text': f"{group_name} - Box Plot Analysis",
+                'x': 0.5,
+                'xanchor': 'center',
+                'yanchor': 'top'
+            },
             height=500,
             showlegend=False,
             xaxis={'tickangle': 45}
@@ -983,14 +987,18 @@ class ATESVisualizer:
             plot_df,
             x='Parameter',
             y='Value',
-            title=f"{group_name} - Violin Plot Analysis",
             box=True,
             color='Parameter',
             color_discrete_sequence=[self.group_colors[group_name]] * len(selected_params)
         )
         
         fig.update_layout(
-            title_x=0.5,
+            title={
+                'text': f"{group_name} - Violin Plot Analysis",
+                'x': 0.5,
+                'xanchor': 'center',
+                'yanchor': 'top'
+            },
             height=500,
             showlegend=False,
             xaxis={'tickangle': 45}
@@ -1006,28 +1014,32 @@ class ATESVisualizer:
             if len(data) == 0:
                 continue
             
-            # Create subplots: histogram + box plot + Q-Q Plot
+            # Create subplots
             fig = make_subplots(
-                rows=2, cols=2,
+                rows=1, cols=3,
                 subplot_titles=["Distribution", "Box Plot", "Q-Q Plot"],
-                specs=[[{"secondary_y": False}, {"rowspan": 2}],
-                       [{"secondary_y": False}, None]], # None for empty bottom right
-                vertical_spacing=0.1,
-                horizontal_spacing=0.1
+                horizontal_spacing=0.08,
+                column_widths=[0.33, 0.33, 0.34]
             )
-            
+
             # Histogram
             fig.add_trace(
                 go.Histogram(
                     x=data, 
                     nbinsx=30, 
                     name="Frequency",
-                    marker_color=self.group_colors[group_name],
-                    opacity=0.7
+                    marker=dict(
+                        color=self.group_colors[group_name],
+                        line=dict(
+                            color='rgba(0,0,0,0.9)',  
+                            width=1        
+                        )
+                    ),
+                    opacity=0.85
                 ),
                 row=1, col=1
             )
-            
+
             # Box plot
             fig.add_trace(
                 go.Box(
@@ -1037,11 +1049,11 @@ class ATESVisualizer:
                 ),
                 row=1, col=2
             )
-            
+
             # Q-Q plot
             sorted_data = np.sort(data)
             theoretical_quantiles = stats.norm.ppf(np.linspace(0.01, 0.99, len(sorted_data)))
-            
+
             fig.add_trace(
                 go.Scatter(
                     x=theoretical_quantiles,
@@ -1050,15 +1062,15 @@ class ATESVisualizer:
                     name="Q-Q Plot",
                     marker=dict(color=self.group_colors[group_name])
                 ),
-                row=2, col=1
+                row=1, col=3
             )
-            
-            # Add reference line for Q-Q plot with safe conversions
+
+            # Add reference line for Q-Q plot
             min_val = safe_float(np.min(theoretical_quantiles))
             max_val = safe_float(np.max(theoretical_quantiles))
             q01_val = safe_float(data.quantile(0.01))
             q99_val = safe_float(data.quantile(0.99))
-            
+
             fig.add_trace(
                 go.Scatter(
                     x=[min_val, max_val],
@@ -1067,16 +1079,35 @@ class ATESVisualizer:
                     name="Reference",
                     line=dict(dash='dash', color='red')
                 ),
-                row=2, col=1
+                row=1, col=3
             )
+            
+            
             
             fig.update_layout(
-                title_text=f"{group_params.get(param, param)} - Comprehensive Analysis",
-                title_x=0.5,
-                height=600,
-                showlegend=False
+                title={
+                    'text': f"{group_params.get(param, param)} - Comprehensive Analysis",
+                    'x': 0.5,
+                    'xanchor': 'center',
+                    'yanchor': 'top'
+                },
+                height=500,  
+                showlegend=False,
+                bargap=0.1
             )
+
+            # 更新坐标轴标签
+            fig.update_xaxes(title_text="Value", row=1, col=1)
+            fig.update_yaxes(title_text="Frequency", row=1, col=1)
+            fig.update_yaxes(title_text="Value", row=1, col=2)
+            fig.update_xaxes(title_text="Theoretical Quantiles", row=1, col=3)
+            fig.update_yaxes(title_text="Sample Quantiles", row=1, col=3)
             
+            data_min = safe_float(data.min())
+            data_max = safe_float(data.max())
+            data_range = data_max - data_min
+            padding = data_range * 0.02
+            fig.update_xaxes(range=[data_min - padding, data_max + padding], row=1, col=1)
             st.plotly_chart(fig, width="stretch")
 
     def _show_distribution_statistics(self, selected_params: List[str], group_params: Dict[str, str]):
