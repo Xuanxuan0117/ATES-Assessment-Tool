@@ -96,7 +96,7 @@ def render_sidebar(app_state):
     # navigation
     pages = ['Quick Look', 'Probabilistic Setup', 'Results - Distributions', 'Results - Percentiles', 'Results - Sensitivity']
     page_descriptions = {
-        'Quick Look': 'Quick Look Tool',
+        'Quick Look': "'Quick Look Tool'",
         'Probabilistic Setup': 'Monte Carlo configuration', 
         'Results - Distributions': 'Frequency distributions',
         'Results - Percentiles': 'Percentile analysis',
