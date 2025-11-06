@@ -932,15 +932,21 @@ def render_monte_carlo_export():
 
 def reset_all_distributions():
     """
-    Reset all distribution configurations to default state 
+    Reset all distribution configurations to initial loaded state (or default if no case loaded)
     """
-    st.session_state.param_config_version = st.session_state.get('param_config_version', 0) + 1
+    from tool.utils.state_management import get_app_state
+    app_state = get_app_state()
     
-    st.session_state.stable_param_values = {}
+    # Try to restore from snapshot first
+    restored = app_state.restore_case_snapshot()
     
-    st.session_state.param_distributions = initialize_distributions()
+    if not restored:
+        # No snapshot exists, reset to system defaults
+        st.session_state.param_config_version = st.session_state.get('param_config_version', 0) + 1
+        st.session_state.stable_param_values = {}
+        st.session_state.param_distributions = initialize_distributions()
     
-    # Critical fix: Clear all analysis results
+    # Clear all analysis results
     analysis_keys = [
         'monte_carlo_results',
         'sensitivity_results', 
@@ -956,6 +962,10 @@ def reset_all_distributions():
     st.session_state.calculation_count = 0
     st.session_state.calculation_status = 'not_started'
     st.session_state.last_calculation_time = None
+    
+    # Clear uploaded file ID to allow re-uploading same case
+    if '_last_uploaded_file_id' in st.session_state:
+        del st.session_state['_last_uploaded_file_id']
     
     from tool.utils.state_management import mark_case_modified
     mark_case_modified()

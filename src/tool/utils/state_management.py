@@ -226,6 +226,12 @@ class ATESAppState:
         
         # Clear reset marker
         st.session_state['_state_initializing'] = False
+
+        st.session_state['_has_case_snapshot'] = False
+        if '_case_snapshot_params' in st.session_state:
+            del st.session_state['_case_snapshot_params']
+        if '_case_snapshot_distributions' in st.session_state:
+            del st.session_state['_case_snapshot_distributions']
         
         # Show success message
         st.sidebar.success("New case created - All reset to startup state")
@@ -405,6 +411,8 @@ class ATESAppState:
             if hasattr(st.session_state.ates_params, '__post_init__'):
                 st.session_state.ates_params.__post_init__()
             
+            self._save_case_snapshot()
+
             st.sidebar.success(f"Loaded: {case_name}")
             st.rerun()
             
@@ -450,6 +458,67 @@ class ATESAppState:
         
         return base_name.replace('_', ' ').title()
     
+    def _save_case_snapshot(self):
+        """
+        Save a snapshot of the loaded case for Reset All functionality
+        """
+        import copy
+        
+        # Save parameters snapshot
+        if 'ates_params' in st.session_state:
+            from tool.core.ates_calculator import ATESParameters
+            params = st.session_state.ates_params
+            
+            # Create a deep copy of parameters
+            params_dict = {}
+            for field in params.__dataclass_fields__:
+                params_dict[field] = getattr(params, field)
+            
+            st.session_state['_case_snapshot_params'] = params_dict
+        
+        # Save distributions snapshot
+        if 'param_distributions' in st.session_state:
+            st.session_state['_case_snapshot_distributions'] = copy.deepcopy(
+                st.session_state['param_distributions']
+            )
+        
+        # Mark that a snapshot exists
+        st.session_state['_has_case_snapshot'] = True
+
+    def restore_case_snapshot(self):
+        """
+        Restore the case to its initial loaded state (for Reset All)
+        Returns True if snapshot was restored, False if no snapshot exists
+        """
+        if not st.session_state.get('_has_case_snapshot', False):
+            return False
+        
+        # Restore parameters
+        if '_case_snapshot_params' in st.session_state:
+            from tool.core.ates_calculator import ATESParameters
+            params = ATESParameters()
+            
+            for key, value in st.session_state['_case_snapshot_params'].items():
+                if hasattr(params, key):
+                    setattr(params, key, value)
+            
+            st.session_state['ates_params'] = params
+            
+            # Re-sync to temp variables
+            self._sync_params_to_temp_variables()
+        
+        # Restore distributions
+        if '_case_snapshot_distributions' in st.session_state:
+            import copy
+            st.session_state['param_distributions'] = copy.deepcopy(
+                st.session_state['_case_snapshot_distributions']
+            )
+            st.session_state['param_config_version'] = st.session_state.get('param_config_version', 0) + 1
+            st.session_state['stable_param_values'] = {}
+        
+        return True
+
+
     def _clean_filename(self, name: str) -> str:
         """Clean filename"""
         cleaned = re.sub(r'[<>:"/\\|?*]', '', name)
