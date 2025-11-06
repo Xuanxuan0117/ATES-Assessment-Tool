@@ -56,7 +56,7 @@ def initialize_distributions_from_ates_params() -> None:
         'aquifer_temp', 'water_density', 'water_specific_heat_capacity',
         'thermal_recovery_factor', 'heating_target_avg_flowrate_pd',
         'tolerance_in_energy_balance', 'heating_number_of_doublets',
-        'heating_months', 'cooling_months', 'pump_energy_density',
+        'heating_days', 'cooling_days', 'pump_energy_density',
         'heating_ave_injection_temp', 'heating_temp_to_building',
         'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
         'carbon_intensity', 'cooling_ave_injection_temp', 'cooling_temp_to_building'
@@ -88,7 +88,7 @@ def initialize_distributions() -> Dict[str, Dict[str, Any]]:
         'aquifer_temp', 'water_density', 'water_specific_heat_capacity',
         'thermal_recovery_factor', 'heating_target_avg_flowrate_pd',
         'tolerance_in_energy_balance', 'heating_number_of_doublets',
-        'heating_months', 'cooling_months', 'pump_energy_density',
+        'heating_days', 'cooling_days', 'pump_energy_density',
         'heating_ave_injection_temp', 'heating_temp_to_building',
         'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
         'carbon_intensity', 'cooling_ave_injection_temp', 'cooling_temp_to_building'
@@ -144,11 +144,20 @@ def sync_to_deterministic():
                 new_value = dist['mean']
             else:  # range
                 new_value = (dist['min'] + dist['max']) / 2
-            
+
+            if 'number_of_doublets' in param_name:
+                new_value = int(round(new_value))
+
             current_value = getattr(st.session_state.ates_params, param_name)
-            if abs(current_value - new_value) > 1e-6:
+            if 'number_of_doublets' in param_name:
+                has_changed = (current_value != new_value)
+            else:
+                has_changed = abs(current_value - new_value) > 1e-6
+            
+            if has_changed:
                 setattr(st.session_state.ates_params, param_name, new_value)
                 updated_count += 1
+            
     
     if updated_count > 0:
         st.session_state.ates_params.__post_init__()
@@ -227,6 +236,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
             value=float(stable_config.get('value', 0)),
             key=val_key,
             format="%.4f",
+            step=0.0001,
             on_change=lambda: update_stable_config('value', st.session_state[val_key])
         )
     
@@ -239,6 +249,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                 value=float(stable_config.get('min', 0)),
                 key=min_key,
                 format="%.4f",
+                step=0.0001,
                 on_change=lambda: update_stable_config('min', st.session_state[min_key])
             )
                 
@@ -249,6 +260,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                 value=float(stable_config.get('max', 1)),
                 key=max_key,
                 format="%.4f",
+                step=0.0001,
                 on_change=lambda: update_stable_config('max', st.session_state[max_key])
             )
         
@@ -264,6 +276,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                 value=float(stable_config.get('min', 0)),
                 key=tri_min_key,
                 format="%.4f",
+                step=0.0001,
                 on_change=lambda: update_stable_config('min', st.session_state[tri_min_key])
             )
                 
@@ -274,6 +287,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                 value=float(stable_config.get('most_likely', 0.5)),
                 key=tri_ml_key,
                 format="%.4f",
+                step=0.0001,
                 on_change=lambda: update_stable_config('most_likely', st.session_state[tri_ml_key])
             )
                 
@@ -284,6 +298,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                 value=float(stable_config.get('max', 1)),
                 key=tri_max_key,
                 format="%.4f",
+                step=0.0001,
                 on_change=lambda: update_stable_config('max', st.session_state[tri_max_key])
             )
         
@@ -302,6 +317,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                 value=float(stable_config.get('mean', 0)),
                 key=mean_key,
                 format="%.4f",
+                step=0.0001,
                 on_change=lambda: update_stable_config('mean', st.session_state[mean_key])
             )
                 
@@ -313,6 +329,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                 min_value=0.0,
                 key=std_key,
                 format="%.4f",
+                step=0.0001,
                 on_change=lambda: update_stable_config('std', st.session_state[std_key])
             )
         
@@ -325,6 +342,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     value=float(stable_config.get('location', 0.0)),
                     key=location_key,
                     format="%.4f",
+                    step=0.0001,
                     help="Minimum possible value (location parameter)",
                     on_change=lambda: update_stable_config('location', st.session_state[location_key])
                 )
@@ -351,7 +369,7 @@ def render_parameter_groups_tabs():
     tab1, tab2, tab3, tab4 = st.tabs([
         "Physical Parameters",           # Section A
         "Demand Parameters",              # Section B
-        "ATES System Operation",          # Section C
+        "System Operation",               # Section C
         "Heat Pump and Carbon Intensity"  # Section D
     ])
     
@@ -396,16 +414,16 @@ def render_demand_parameters():
     st.subheader("Demand Parameters")
     
     demand_params = [
-        'heating_months',
+        'heating_days',
         'heating_temp_to_building',
-        'cooling_months',
+        'cooling_days',
         'cooling_temp_to_building'
     ]
     
     param_labels = {
-        'heating_months': 'Heating Months',
+        'heating_days': 'Heating Days',
         'heating_temp_to_building': 'Building Heating Temperature (°C)',
-        'cooling_months': 'Cooling Months',
+        'cooling_days': 'Cooling Days',
         'cooling_temp_to_building': 'Building Cooling Temperature (°C)'
     }
     
@@ -431,10 +449,10 @@ def render_operational_parameters():
     param_labels = {
         'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
         'heating_number_of_doublets': 'Number of Doublets (-)',
-        'heating_ave_injection_temp': 'Heating Injection Temperature (°C)',
+        'heating_ave_injection_temp': 'Cool well injection temperature (°C)',
         'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
         'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
-        'cooling_ave_injection_temp': 'Cooling Injection Temperature (°C)'
+        'cooling_ave_injection_temp': 'Warm well injection temperature (°C)'
     }
     
     for param in operational_params:

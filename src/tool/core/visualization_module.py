@@ -198,7 +198,7 @@ class ATESVisualizer:
     
     def render_distribution_plots(self):
         """Render frequency distribution plots for selected parameters"""
-        st.subheader("Frequency Distributions")
+        # st.subheader("Frequency Distributions")
         
         if self.monte_carlo_results is None:
             st.error("No Monte Carlo results available")
@@ -297,7 +297,7 @@ class ATESVisualizer:
         """
         Render percentile analysis tables and plots
         """
-        st.subheader("Percentile Analysis")
+        # st.subheader("Percentile Analysis")
         
         if self.monte_carlo_results is None:
             st.error("No Monte Carlo results available")
@@ -341,7 +341,7 @@ class ATESVisualizer:
         """
         Render sensitivity analysis results
         """
-        st.subheader("Sensitivity Analysis")
+        # st.subheader("Sensitivity Analysis")
         
         if not self.sensitivity_results:
             st.error("No sensitivity analysis results available")
@@ -384,15 +384,15 @@ class ATESVisualizer:
             )
         
         # display options
-        show_options = st.columns(4)
+        show_options = st.columns(3)
         with show_options[0]:
             show_table = st.checkbox("Show Table", value=True)
         with show_options[1]:
             show_bar_chart = st.checkbox("Show Bar Chart", value=True)
         with show_options[2]:
             show_tornado = st.checkbox("Tornado Chart", value=False)
-        with show_options[3]:
-            show_importance = st.checkbox("Overall Ranking", value=False)
+        # with show_options[3]:
+        #     show_importance = st.checkbox("Overall Ranking", value=False)
         
         # get sensitivity data for selected output
         sensitivity_df = self.sensitivity_results[selected_output]
@@ -406,8 +406,8 @@ class ATESVisualizer:
         if show_tornado:
             self._plot_tornado_chart(sensitivity_df, selected_output, correlation_type, n_top_params)
         
-        if show_importance:
-            self._plot_overall_parameter_importance()
+        # if show_importance:
+        #     self._plot_overall_parameter_importance()
     
     def render_correlation_matrix(self):
         """
@@ -450,8 +450,8 @@ class ATESVisualizer:
             format_func=lambda x: x.title()
         )
         
-        # calculate and display correlation matrix
-        self._plot_correlation_matrix(selected_params, corr_method)
+        # # calculate and display correlation matrix
+        # self._plot_correlation_matrix(selected_params, corr_method)
 
     def _plot_histograms(self, selected_params: List[str], group_params: Dict[str, str], group_name: str):
         """
@@ -1395,8 +1395,11 @@ class ATESVisualizer:
             ))
         
         fig.update_layout(
-            title=f"{group_name} - {confidence_level}% Confidence Intervals",
-            title_x=0.5,
+            title={
+                'text': f"{group_name} - {confidence_level}% Confidence Intervals",
+                'x': 0.5,
+                'xanchor': 'center'
+            },
             height=500,
             xaxis_title="Parameters",
             yaxis_title="Value",
@@ -1545,153 +1548,153 @@ class ATESVisualizer:
         
         st.plotly_chart(fig, width="stretch")
 
-    def _plot_overall_parameter_importance(self):
-        """
-        Plot overall parameter importance ranking
-        """
-        if not self.sensitivity_results:
-            st.warning("No sensitivity results available")
-            return
+    # def _plot_overall_parameter_importance(self):
+    #     """
+    #     Plot overall parameter importance ranking
+    #     """
+    #     if not self.sensitivity_results:
+    #         st.warning("No sensitivity results available")
+    #         return
         
-        st.markdown("### Overall Parameter Importance Ranking")
+    #     st.markdown("### Overall Parameter Importance Ranking")
         
-        # Calculate importance scores across all outputs
-        importance_scores = {}
+    #     # Calculate importance scores across all outputs
+    #     importance_scores = {}
         
-        for output_param, sensitivity_df in self.sensitivity_results.items():
-            for _, row in sensitivity_df.iterrows():
-                input_param = row['Input_Parameter']
-                abs_corr = safe_float(row['Abs_Pearson'])
+    #     for output_param, sensitivity_df in self.sensitivity_results.items():
+    #         for _, row in sensitivity_df.iterrows():
+    #             input_param = row['Input_Parameter']
+    #             abs_corr = safe_float(row['Abs_Pearson'])
                 
-                if input_param not in importance_scores:
-                    importance_scores[input_param] = []
-                importance_scores[input_param].append(abs_corr)
+    #             if input_param not in importance_scores:
+    #                 importance_scores[input_param] = []
+    #             importance_scores[input_param].append(abs_corr)
         
-        # Calculate aggregate metrics
-        ranking_data = []
-        for input_param, scores in importance_scores.items():
-            ranking_data.append({
-                'Parameter': self._format_parameter_name(input_param),
-                'Mean_Importance': np.mean(scores),
-                'Max_Importance': np.max(scores),
-                'Min_Importance': np.min(scores),
-                'Std_Importance': np.std(scores),
-                'Number_of_Outputs': len(scores)
-            })
+    #     # Calculate aggregate metrics
+    #     ranking_data = []
+    #     for input_param, scores in importance_scores.items():
+    #         ranking_data.append({
+    #             'Parameter': self._format_parameter_name(input_param),
+    #             'Mean_Importance': np.mean(scores),
+    #             'Max_Importance': np.max(scores),
+    #             'Min_Importance': np.min(scores),
+    #             'Std_Importance': np.std(scores),
+    #             'Number_of_Outputs': len(scores)
+    #         })
         
-        ranking_df = pd.DataFrame(ranking_data)
-        ranking_df = ranking_df.sort_values('Mean_Importance', ascending=True)
+    #     ranking_df = pd.DataFrame(ranking_data)
+    #     ranking_df = ranking_df.sort_values('Mean_Importance', ascending=True)
         
-        # Display top parameters
-        n_display = st.slider("Number of parameters to display", 5, min(20, len(ranking_df)), 10)
-        top_ranking = ranking_df.tail(n_display)
+    #     # Display top parameters
+    #     n_display = st.slider("Number of parameters to display", 5, min(20, len(ranking_df)), 10)
+    #     top_ranking = ranking_df.tail(n_display)
         
-        # Create horizontal bar chart
-        fig = px.bar(
-            top_ranking,
-            x='Mean_Importance',
-            y='Parameter',
-            orientation='h',
-            labels={
-                'Mean_Importance': 'Mean Absolute Correlation',
-                'Parameter': 'Input Parameters'
-            },
-            color='Mean_Importance',
-            color_continuous_scale='Viridis'
-        )
+    #     # Create horizontal bar chart
+    #     fig = px.bar(
+    #         top_ranking,
+    #         x='Mean_Importance',
+    #         y='Parameter',
+    #         orientation='h',
+    #         labels={
+    #             'Mean_Importance': 'Mean Absolute Correlation',
+    #             'Parameter': 'Input Parameters'
+    #         },
+    #         color='Mean_Importance',
+    #         color_continuous_scale='Viridis'
+    #     )
         
-        fig.update_layout(
-                title={
-                'text': "Overall Parameter Importance Ranking (Mean Absolute Correlation)",
-                'x': 0.5,
-                'xanchor': 'center',
-                'yanchor': 'top'
-            },
-            height=max(400, n_display * 30),
-            yaxis={'categoryorder': 'total ascending'}
-        )
+    #     fig.update_layout(
+    #             title={
+    #             'text': "Overall Parameter Importance Ranking (Mean Absolute Correlation)",
+    #             'x': 0.5,
+    #             'xanchor': 'center',
+    #             'yanchor': 'top'
+    #         },
+    #         height=max(400, n_display * 30),
+    #         yaxis={'categoryorder': 'total ascending'}
+    #     )
         
-        st.plotly_chart(fig, width="stretch")
+    #     st.plotly_chart(fig, width="stretch")
         
-        # Show detailed ranking table
-        if st.checkbox("Show Detailed Ranking Table"):
-            display_ranking = ranking_df.sort_values('Mean_Importance', ascending=False)
+    #     # Show detailed ranking table
+    #     if st.checkbox("Show Detailed Ranking Table"):
+    #         display_ranking = ranking_df.sort_values('Mean_Importance', ascending=False)
             
-            # round numerical columns
-            numeric_cols = ['Mean_Importance', 'Max_Importance', 'Min_Importance', 'Std_Importance']
-            for col in numeric_cols:
-                display_ranking[col] = display_ranking[col].round(4)
+    #         # round numerical columns
+    #         numeric_cols = ['Mean_Importance', 'Max_Importance', 'Min_Importance', 'Std_Importance']
+    #         for col in numeric_cols:
+    #             display_ranking[col] = display_ranking[col].round(4)
             
-            st.dataframe(display_ranking, width="stretch", hide_index=True)
+    #         st.dataframe(display_ranking, width="stretch", hide_index=True)
 
-    def _plot_correlation_matrix(self, selected_params: List[str], corr_method: str):
-        """
-        Plot correlation matrix for selected parameters
-        """
-        # Calculate correlation matrix
-        try:
-            correlation_data = self.successful_results[selected_params]
-            correlation_data = correlation_data.replace([np.inf, -np.inf], np.nan).dropna()
-            corr_method_typed = cast(Literal["pearson", "spearman", "kendall"], corr_method)
-            correlation_matrix = correlation_data.corr(method=corr_method_typed)
+    # def _plot_correlation_matrix(self, selected_params: List[str], corr_method: str):
+    #     """
+    #     Plot correlation matrix for selected parameters
+    #     """
+    #     # Calculate correlation matrix
+    #     try:
+    #         correlation_data = self.successful_results[selected_params]
+    #         correlation_data = correlation_data.replace([np.inf, -np.inf], np.nan).dropna()
+    #         corr_method_typed = cast(Literal["pearson", "spearman", "kendall"], corr_method)
+    #         correlation_matrix = correlation_data.corr(method=corr_method_typed)
             
-            # create heatmap
-            fig = px.imshow(
-                correlation_matrix,
-                title=f"Output Parameter Correlation Matrix ({corr_method.title()})",
-                color_continuous_scale="RdBu_r",
-                aspect="auto",
-                zmin=-1,
-                zmax=1
-            )
+    #         # create heatmap
+    #         fig = px.imshow(
+    #             correlation_matrix,
+    #             title=f"Output Parameter Correlation Matrix ({corr_method.title()})",
+    #             color_continuous_scale="RdBu_r",
+    #             aspect="auto",
+    #             zmin=-1,
+    #             zmax=1
+    #         )
             
-            # format labels
-            formatted_labels = [self._format_parameter_name(col) for col in correlation_matrix.columns]
-            fig.update_layout(
-                title_x=0.5,
-                height=600,
-                xaxis_title="Parameters",
-                yaxis_title="Parameters",
-                xaxis=dict(
-                    ticktext=formatted_labels, 
-                    tickvals=list(range(len(formatted_labels))),
-                    tickangle=45
-                ),
-                yaxis=dict(
-                    ticktext=formatted_labels, 
-                    tickvals=list(range(len(formatted_labels)))
-                )
-            )
+    #         # format labels
+    #         formatted_labels = [self._format_parameter_name(col) for col in correlation_matrix.columns]
+    #         fig.update_layout(
+    #             title_x=0.5,
+    #             height=600,
+    #             xaxis_title="Parameters",
+    #             yaxis_title="Parameters",
+    #             xaxis=dict(
+    #                 ticktext=formatted_labels, 
+    #                 tickvals=list(range(len(formatted_labels))),
+    #                 tickangle=45
+    #             ),
+    #             yaxis=dict(
+    #                 ticktext=formatted_labels, 
+    #                 tickvals=list(range(len(formatted_labels)))
+    #             )
+    #         )
             
-            st.plotly_chart(fig, width="stretch")
+    #         st.plotly_chart(fig, width="stretch")
             
-            # Show correlation statistics
-            if st.checkbox("Show Correlation Statistics"):
-                # find strongest correlations
-                corr_pairs = []
-                for i in range(len(correlation_matrix.columns)):
-                    for j in range(i+1, len(correlation_matrix.columns)):
-                        param1 = correlation_matrix.columns[i]
-                        param2 = correlation_matrix.columns[j]
-                        corr_value = correlation_matrix.iloc[i, j]
+    #         # Show correlation statistics
+    #         if st.checkbox("Show Correlation Statistics"):
+    #             # find strongest correlations
+    #             corr_pairs = []
+    #             for i in range(len(correlation_matrix.columns)):
+    #                 for j in range(i+1, len(correlation_matrix.columns)):
+    #                     param1 = correlation_matrix.columns[i]
+    #                     param2 = correlation_matrix.columns[j]
+    #                     corr_value = correlation_matrix.iloc[i, j]
                         
-                        corr_pairs.append({
-                            'Parameter 1': self._format_parameter_name(param1),
-                            'Parameter 2': self._format_parameter_name(param2),
-                            'Correlation': safe_float(corr_value),
-                            'Abs Correlation': safe_abs(corr_value)
-                        })
+    #                     corr_pairs.append({
+    #                         'Parameter 1': self._format_parameter_name(param1),
+    #                         'Parameter 2': self._format_parameter_name(param2),
+    #                         'Correlation': safe_float(corr_value),
+    #                         'Abs Correlation': safe_abs(corr_value)
+    #                     })
                 
-                corr_pairs_df = pd.DataFrame(corr_pairs)
-                corr_pairs_df = corr_pairs_df.sort_values('Abs Correlation', ascending=False)
-                corr_pairs_df['Correlation'] = corr_pairs_df['Correlation'].round(4)
-                corr_pairs_df['Abs Correlation'] = corr_pairs_df['Abs Correlation'].round(4)
+    #             corr_pairs_df = pd.DataFrame(corr_pairs)
+    #             corr_pairs_df = corr_pairs_df.sort_values('Abs Correlation', ascending=False)
+    #             corr_pairs_df['Correlation'] = corr_pairs_df['Correlation'].round(4)
+    #             corr_pairs_df['Abs Correlation'] = corr_pairs_df['Abs Correlation'].round(4)
                 
-                st.markdown("**Strongest Correlations:**")
-                st.dataframe(corr_pairs_df.head(10), width="stretch", hide_index=True)
+    #             st.markdown("**Strongest Correlations:**")
+    #             st.dataframe(corr_pairs_df.head(10), width="stretch", hide_index=True)
         
-        except Exception as e:
-            st.error(f"Error calculating correlation matrix: {str(e)}")
+    #     except Exception as e:
+    #         st.error(f"Error calculating correlation matrix: {str(e)}")
 
     def _format_parameter_name(self, param_name: str) -> str:
         """
@@ -1706,8 +1709,8 @@ class ATESVisualizer:
             'heating_target_avg_flowrate_pd': 'Heating Target Average Flow Rate per Doublet', 
             'tolerance_in_energy_balance': 'Energy Balance Tolerance',  
             'heating_number_of_doublets': 'Number of Doublets',  
-            'heating_months': 'Heating Months',
-            'cooling_months': 'Cooling Months',
+            'heating_days': 'Heating Days',
+            'cooling_days': 'Cooling Days',
             'pump_energy_density': 'Pump Energy Density',
             'heating_ave_injection_temp': 'Heating Average Injection Temperature',
             'heating_temp_to_building': 'Heating Temperature to Building', 

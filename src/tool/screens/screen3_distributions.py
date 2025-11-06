@@ -2,7 +2,7 @@ import streamlit as st
 from tool.core.visualization_module import ATESVisualizer
 
 def main():
-    st.title("Results - Frequency Distributions")
+    st.title("Frequency Distributions")
     
     visualizer = ATESVisualizer(
         st.session_state.monte_carlo_results,

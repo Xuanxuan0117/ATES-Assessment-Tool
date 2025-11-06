@@ -93,14 +93,14 @@ def render_sidebar(app_state):
     st.sidebar.markdown("*Imperial Aquifer Thermal Energy Storage System*")
     st.sidebar.markdown("---")
     
-    # Simple, reliable navigation
+    # navigation
     pages = ['Quick Look', 'Probabilistic Setup', 'Results - Distributions', 'Results - Percentiles', 'Results - Sensitivity']
     page_descriptions = {
-        'Quick Look': 'Deterministic calculation',
+        'Quick Look': 'Quick Look Tool',
         'Probabilistic Setup': 'Monte Carlo configuration', 
         'Results - Distributions': 'Frequency distributions',
-        'Results - Percentiles': 'Risk analysis',
-        'Results - Sensitivity': 'Parameter importance'
+        'Results - Percentiles': 'Percentile analysis',
+        'Results - Sensitivity': 'Sensitivity analysis'
     }
     
     current_page = st.session_state.get('current_page', 'Quick Look')
@@ -187,17 +187,16 @@ def add_footer():
     
     st.markdown("---")
     
-    col1, col2, col3 = st.columns([2, 1, 1])
+    col1, col2= st.columns([1, 1])
     
     with col1:
         modification_status = " (Modified)" if case_modified else ""
         st.markdown(f"**Current Case:** {case_name}{modification_status}")
     
     with col2:
-        st.markdown("**Version:** 3.0.0")
+        st.markdown("**Version:** 4.0.0")
     
-    with col3:
-        st.markdown("**By:** Yixuan Yan")
+
 
 # Initialize application safely
 if 'app_initialized' not in st.session_state:

@@ -44,8 +44,8 @@ def update_all_parameters_from_temp():
         ('heating_target_avg_flowrate_pd', '_temp_heating_target_avg_flowrate_pd'),
         ('tolerance_in_energy_balance', '_temp_tolerance_in_energy_balance'),
         ('heating_number_of_doublets', '_temp_heating_number_of_doublets'),
-        ('heating_months', '_temp_heating_months'),
-        ('cooling_months', '_temp_cooling_months'),
+        ('heating_days', '_temp_heating_days'),
+        ('cooling_days', '_temp_cooling_days'),
         ('pump_energy_density', '_temp_pump_energy_density'),
         ('heating_ave_injection_temp', '_temp_heating_ave_injection_temp'),
         ('heating_temp_to_building', '_temp_heating_temp_to_building'),
@@ -123,7 +123,7 @@ def sync_all_params_to_distributions():
     param_names = [
         'aquifer_temp', 'water_density', 'water_specific_heat_capacity', 'thermal_recovery_factor',
         'heating_target_avg_flowrate_pd', 'tolerance_in_energy_balance', 'heating_number_of_doublets',
-        'heating_months', 'cooling_months', 'pump_energy_density',
+        'heating_days', 'cooling_days', 'pump_energy_density',
         'heating_ave_injection_temp', 'heating_temp_to_building',
         'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d', 'carbon_intensity',
         'cooling_ave_injection_temp', 'cooling_temp_to_building'
@@ -146,7 +146,7 @@ def initialize_default_distributions():
         probabilistic_params = [
             'aquifer_temp', 'water_density', 'water_specific_heat_capacity', 'thermal_recovery_factor',
             'heating_target_avg_flowrate_pd', 'tolerance_in_energy_balance', 'heating_number_of_doublets',
-            'heating_months', 'cooling_months', 'pump_energy_density', 
+            'heating_days', 'cooling_days', 'pump_energy_density', 
             'heating_ave_injection_temp', 'heating_temp_to_building',
             'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
             'carbon_intensity', 'cooling_ave_injection_temp', 'cooling_temp_to_building'
@@ -226,14 +226,14 @@ def render_parameter_section_b():
         col1, col2 = st.columns(2)
         
         with col1:
-            heating_months = st.number_input(
-                "Heating Months",
-                value=float(st.session_state.ates_params.heating_months),
-                min_value=1.0,
-                max_value=10.0,
-                step=0.1,
+            heating_days = st.number_input(
+                "Heating Days",
+                value=float(st.session_state.ates_params.heating_days),
+                min_value=0.0,
+                max_value=365.0,
+                step=1.0,
                 format="%.2f",
-                help="Length of the heating season"
+                help="Length of the heating"
             )
             
             heating_temp_to_building = st.number_input(
@@ -247,14 +247,14 @@ def render_parameter_section_b():
             )
         
         with col2:
-            cooling_months = st.number_input(
-                "Cooling Months",
-                value=float(st.session_state.ates_params.cooling_months),
-                min_value=0.5,
-                max_value=8.0,
-                step=0.1,
+            cooling_days = st.number_input(
+                "Cooling Days",
+                value=float(st.session_state.ates_params.cooling_days),
+                min_value=0.0,
+                max_value=365.0,
+                step=1.0,
                 format="%.2f",
-                help="Length of the cooling season"
+                help="Length of the cooling"
             )
             
             cooling_temp_to_building = st.number_input(
@@ -267,8 +267,8 @@ def render_parameter_section_b():
                 help="Building cooling temperature"
             )
         
-        st.session_state['_temp_heating_months'] = heating_months
-        st.session_state['_temp_cooling_months'] = cooling_months
+        st.session_state['_temp_heating_days'] = heating_days
+        st.session_state['_temp_cooling_days'] = cooling_days
         st.session_state['_temp_heating_temp_to_building'] = heating_temp_to_building
         st.session_state['_temp_cooling_temp_to_building'] = cooling_temp_to_building
 
@@ -277,7 +277,7 @@ def render_parameter_section_c():
     """
     ATES System Operation (6 parameters) 
     """
-    with st.expander("C. ATES System Operation", expanded=False):
+    with st.expander("C. System Operation", expanded=False):
         col1, col2 = st.columns(2)
         
         with col1:
@@ -301,13 +301,13 @@ def render_parameter_section_c():
             )
             
             heating_ave_injection_temp = st.number_input(
-                "Heating Injection Temperature (°C)",
+                "Cool well injection temperature (°C)",
                 value=float(st.session_state.ates_params.heating_ave_injection_temp),
                 min_value=5.0,
                 max_value=15.0,
                 step=0.1,
                 format="%.2f",
-                help="Heating injection temperature (< Aquifer Temperature)"
+                help="Cool well injection temperature (< Aquifer Temperature)"
             )
         
         with col2:
@@ -332,13 +332,13 @@ def render_parameter_section_c():
             )
             
             cooling_ave_injection_temp = st.number_input(
-                "Cooling Injection Temperature (°C)",
+                "Warm well injection temperature (°C)",
                 value=float(st.session_state.ates_params.cooling_ave_injection_temp),
                 min_value=15.0,
                 max_value=35.0,
                 step=0.1,
                 format="%.2f",
-                help="Cooling injection temperature (> Aquifer Temperature)"
+                help="Warm well injection temperature (> Aquifer Temperature)"
             )
         
         st.session_state['_temp_heating_target_avg_flowrate_pd'] = heating_target_avg_flowrate_pd
@@ -442,10 +442,10 @@ def render_parameter_section_e():
             )
             
             st.text_input(
-                "Shoulder Months",
-                value=f"{st.session_state.ates_params.shoulder_months:.1f}",
+                "Shoulder Days",
+                value=f"{st.session_state.ates_params.shoulder_days:.1f}",
                 disabled=True,
-                help="12 - Heating Months - Cooling Months"
+                help="365 - Heating Days - Cooling Days"
             )
             
             # st.text_input(
@@ -495,8 +495,8 @@ def initialize_temp_variables_from_params():
     st.session_state['_temp_heating_target_avg_flowrate_pd'] = params.heating_target_avg_flowrate_pd
     st.session_state['_temp_tolerance_in_energy_balance'] = params.tolerance_in_energy_balance
     st.session_state['_temp_heating_number_of_doublets'] = params.heating_number_of_doublets
-    st.session_state['_temp_heating_months'] = params.heating_months
-    st.session_state['_temp_cooling_months'] = params.cooling_months
+    st.session_state['_temp_heating_days'] = params.heating_days
+    st.session_state['_temp_cooling_days'] = params.cooling_days
     st.session_state['_temp_pump_energy_density'] = params.pump_energy_density
     st.session_state['_temp_heating_ave_injection_temp'] = params.heating_ave_injection_temp
     st.session_state['_temp_heating_temp_to_building'] = params.heating_temp_to_building
@@ -522,14 +522,14 @@ def validate_parameters():
     params = st.session_state.ates_params
     
     if params.heating_ave_injection_temp >= params.aquifer_temp:
-        errors.append("Heating injection temperature must be less than aquifer temperature")
+        errors.append("Cool well injection temperature must be less than aquifer temperature")
     
     if params.cooling_ave_injection_temp <= params.aquifer_temp:
-        errors.append("Cooling injection temperature must be greater than aquifer temperature")
+        errors.append("Warm well injection temperature must be greater than aquifer temperature")
     
-    total_months = params.heating_months + params.cooling_months
-    if total_months > 12:
-        errors.append(f"The sum of heating and cooling months cannot exceed 12 (Current: {total_months:.1f})")
+    total_days = params.heating_days + params.cooling_days
+    if total_days > 365:
+        errors.append(f"The sum of heating and cooling days cannot exceed 365 (Current: {total_days:.1f})")
     
     if params.thermal_recovery_factor <= 0 or params.thermal_recovery_factor > 1:
         errors.append("Thermal recovery factor must be between 0 and 1")
@@ -843,7 +843,7 @@ def main():
     app_state = get_app_state()
     
     # main page title
-    st.title("Imperial ATES Calculator")
+    st.title("'Quick Look' Deterministic Analysis")
     st.markdown("**Imperial Aquifer Thermal Energy Storage System Calculation Tool**")
     
     # create two-column layout

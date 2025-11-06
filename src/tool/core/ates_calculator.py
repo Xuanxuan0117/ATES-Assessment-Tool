@@ -22,8 +22,8 @@ class ATESParameters:
     heating_target_avg_flowrate_pd: float = 60.0      # D10 - qb,h Target average flow rate per doublet for heating (m³/hr)
     tolerance_in_energy_balance: float = 0.15         # D11 - εEBR Energy Balance Ratio tolerance (-)
     heating_number_of_doublets: int = 22              # D14 - nb Heating number of doublets (-)
-    heating_months:float = 6.5                        # D17 - th Number of heating months (months)
-    cooling_months: float = 3.5                       # D18 - tc Number of cooling months (months)
+    heating_days:float = 200                          # D17 - th Number of heating days 
+    cooling_days: float = 108                         # D18 - tc Number of cooling days 
     pump_energy_density: float = 600.0                # D25 - Eg Pump energy density (kJ/m³)
     heating_ave_injection_temp: float = 10.0          # D27 - Ti,c Cold borehole(s) injection temperature(°C)
     heating_temp_to_building: float = 60.0            # D29 - Tb,h Building heating temperature (°C)
@@ -44,7 +44,7 @@ class ATESParameters:
 
     # E. Auto-calculated Parameters
     water_volumetric_heat_capacity: float = 0.0       # D6  - cw Water volumetric heat capacity (J/K/m³)
-    shoulder_months: float = 0.0                      # D19 - (-) Number of months which not heating and cooling (-)
+    shoulder_days: float = 0.0                      # D19 - (-) Number of months which not heating and cooling (-)
     heating_total_produced_volume: float = 0.0        # D21 - Vp,h Total produced heating volume(m³)
     
     # turn on for direct calculation, off for monte-carlo
@@ -59,7 +59,7 @@ class ATESParameters:
          self.water_volumetric_heat_capacity = self.water_density * self.water_specific_heat_capacity
 
           # D19 = 12-D17-D18
-         self.shoulder_months = 12 - self.heating_months - self.cooling_months
+         self.shoulder_days = 365 - self.heating_days - self.cooling_days
 
          # G-column auto-calculations
           # G10 calculation(calculate cooling target average flowrate per doublet)
@@ -90,11 +90,11 @@ class ATESParameters:
         Calculates G10 - Cooling flow rate per doublet.
         Formula: (1+D11)*D10*[(D3-D27)*D17-D8*(D27-D3)*D17]/[(D3-G27)*D18-D8*(G27-D3)*D18]
         """
-        numerator = ((self.aquifer_temp - self.heating_ave_injection_temp) * self.heating_months -
-                    self.thermal_recovery_factor * (self.heating_ave_injection_temp - self.aquifer_temp) * self.heating_months)
+        numerator = ((self.aquifer_temp - self.heating_ave_injection_temp) * self.heating_days -
+                    self.thermal_recovery_factor * (self.heating_ave_injection_temp - self.aquifer_temp) * self.heating_days)
 
-        denominator = ((self.aquifer_temp - self.cooling_ave_injection_temp) * self.cooling_months -
-                      self.thermal_recovery_factor * (self.cooling_ave_injection_temp - self.aquifer_temp) * self.cooling_months)
+        denominator = ((self.aquifer_temp - self.cooling_ave_injection_temp) * self.cooling_days -
+                      self.thermal_recovery_factor * (self.cooling_ave_injection_temp - self.aquifer_temp) * self.cooling_days)
 
         if abs(denominator) < 1e-10:
             raise ValueError("Denominator for G10 calculation is close to zero. Please check temperature parameters.")
@@ -112,10 +112,10 @@ class ATESParameters:
         cooling_total_flow = self.cooling_number_of_doublets * self.cooling_target_avg_flowrate_pd  # N6
 
         # D21 = K6*D17*31*24
-        self.heating_total_produced_volume = heating_total_flow * self.heating_months * 31 * 24
+        self.heating_total_produced_volume = heating_total_flow * self.heating_days * 24
 
         # G21 = N6*D18*31*24
-        self.cooling_total_produced_volume = cooling_total_flow * self.cooling_months * 31 * 24
+        self.cooling_total_produced_volume = cooling_total_flow * self.cooling_days * 24
     
     def validate_parameters(self):
         """
@@ -144,18 +144,18 @@ class ATESParameters:
             raise ValueError(f"Heating number of doublets cannot be negative. Got {self.heating_number_of_doublets}.")
 
          # Heating and cooling months
-        if not (0 <= self.heating_months <= 12):
-            raise ValueError(f"Heating months must be between 0 and 12. Got {self.heating_months}.")
-        if not (0 <= self.cooling_months <= 12):
-            raise ValueError(f"Cooling months must be between 0 and 12. Got {self.cooling_months}.")
-        if self.heating_months + self.cooling_months > 12:
-            raise ValueError(f"Sum of heating and cooling months cannot exceed 12. Got {self.heating_months + self.cooling_months}.")
+        if not (0 <= self.heating_days <= 365):
+            raise ValueError(f"Heating days must be between 0 and 365. Got {self.heating_days}.")
+        if not (0 <= self.cooling_days <= 365):
+            raise ValueError(f"Cooling months must be between 0 and 365. Got {self.cooling_days}.")
+        if self.heating_days + self.cooling_days > 365:
+            raise ValueError(f"Sum of heating and cooling days cannot exceed 365. Got {self.heating_days + self.cooling_days}.")
 
         if self.pump_energy_density < 0:
             raise ValueError(f"Pump energy density cannot be negative. Got {self.pump_energy_density}.")
 
         if not (0 <= self.heating_ave_injection_temp <= 100):
-            raise ValueError(f"Heating injection temperature must be between 0 and 100 °C. Got {self.heating_ave_injection_temp}.")
+            raise ValueError(f"Cool well injection temperature must be between 0 and 100 °C. Got {self.heating_ave_injection_temp}.")
         if not (0 <= self.heating_temp_to_building <= 100):
             raise ValueError(f"Heating temperature to building must be between 0 and 100 °C. Got {self.heating_temp_to_building}.")
 
@@ -189,8 +189,8 @@ class ATESParameters:
 
         # E. Derived parameters 
          # validate heating and cooling month based on the number of shoulder months
-        if self.shoulder_months < 0:
-            raise ValueError(f"Computed shoulder months is negative ({self.shoulder_months}). Check heating and cooling months.")  
+        if self.shoulder_days < 0:
+            raise ValueError(f"Computed shoulder days is negative ({self.shoulder_days}). Check heating and cooling days.")  
          # total produced volume should be >= 0
         if self.heating_total_produced_volume < 0:
             raise ValueError(f"Total produced heating volume cannot be negative. Got {self.heating_total_produced_volume}.")
@@ -389,7 +389,7 @@ class ATESCalculator:
                                         (p.cooling_ave_injection_temp - p.aquifer_temp)))
 
         # K16 = K19/D17/31/24/60/60
-        r.heating_ave_power_to_HX_W = (r.heating_annual_energy_aquifer_J /p.heating_months / 31 / 24 / 3600)
+        r.heating_ave_power_to_HX_W = (r.heating_annual_energy_aquifer_J /p.heating_days/ 24 / 3600)
 
         # K17 = K16/1000000
         r.heating_ave_power_to_HX_MW= r.heating_ave_power_to_HX_W / 1000000
@@ -402,7 +402,7 @@ class ATESCalculator:
         r.heating_annual_energy_aquifer_GWhth = r.heating_annual_energy_aquifer_kWhth / 1000000
 
         # K22 = K21/D17
-        r.heating_monthly_to_HX = r.heating_annual_energy_aquifer_GWhth / p.heating_months
+        r.heating_monthly_to_HX = r.heating_annual_energy_aquifer_GWhth / p.heating_days * 31
 
         # Building energy calculations
         if r.heating_direct_mode:
@@ -426,7 +426,7 @@ class ATESCalculator:
         r.heating_annual_energy_building_GWhth = r.heating_annual_energy_building_kWhth / 1000000
 
         # K32 = K31/D17
-        r.heating_monthly_to_building = r.heating_annual_energy_building_GWhth / p.heating_months
+        r.heating_monthly_to_building = r.heating_annual_energy_building_GWhth / p.heating_days * 31
 
         # Electrical energy calculations
         # K34 = D25*D21*1000
@@ -556,7 +556,7 @@ class ATESCalculator:
 
 
         # N16 = N19/D18/31/24/60/60
-        r.cooling_ave_power_to_HX_W = r.cooling_annual_energy_aquifer_J / p.cooling_months / 31 / 24 / 3600
+        r.cooling_ave_power_to_HX_W = r.cooling_annual_energy_aquifer_J / p.cooling_days / 24 / 3600
 
         # N17 = N16/1000000
         r.cooling_ave_power_to_HX_MW = r.cooling_ave_power_to_HX_W / 1_000_000
@@ -568,7 +568,7 @@ class ATESCalculator:
         r.cooling_annual_energy_aquifer_GWhth = r.cooling_annual_energy_aquifer_kWhth / 1_000_000
 
         # N22 = N21/D18
-        r.cooling_monthly_to_HX = r.cooling_annual_energy_aquifer_GWhth / p.cooling_months
+        r.cooling_monthly_to_HX = r.cooling_annual_energy_aquifer_GWhth / p.cooling_days * 31
 
         # building energy calculations
         if r.cooling_direct_mode:
@@ -592,7 +592,7 @@ class ATESCalculator:
         r.cooling_annual_energy_building_GWhth = r.cooling_annual_energy_building_kWhth / 1_000_000
 
         # N32 = N31/D18
-        r.cooling_monthly_to_building = r.cooling_annual_energy_building_GWhth / p.cooling_months
+        r.cooling_monthly_to_building = r.cooling_annual_energy_building_GWhth / p.cooling_days * 31
 
         # Electrical energy calculations
         # N34 = D25*G21*1000
@@ -648,7 +648,7 @@ class ATESCalculator:
         # VBR = (D21 - G21) / (D21 + G21)
         total_volume = p.heating_total_produced_volume + p.cooling_total_produced_volume
         if total_volume > 0:
-            r.volume_balance_ratio = (p.heating_total_produced_volume - p.cooling_total_produced_volume) / total_volume
+            r.volume_balance_ratio = (p.cooling_total_produced_volume - p.heating_total_produced_volume) / total_volume
         else:
             r.volume_balance_ratio = 0.0
 
