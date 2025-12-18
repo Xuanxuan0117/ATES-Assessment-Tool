@@ -108,7 +108,7 @@ The tool supports three case formats:
 - Use cases: parameter backup, sharing, template creation.
 
 **Parameters + Results**
-- Adds deterministic results, system modes, and Monte Carlo summary.
+- Adds deterministic results.
 - Use cases: validation, documentation, scenario comparison.
 
 **Full State (Report)**
