@@ -864,15 +864,21 @@ class ATESVisualizer:
                                 
                             else:
                                 fig = go.Figure()
+                                
+                                counts, bin_edges = np.histogram(data, bins=bins_count)
+                                bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+                                bin_width = bin_edges[1] - bin_edges[0]
+                                probability = counts / len(data)
+                                
                                 fig.add_trace(
-                                    go.Histogram(
-                                        x=data,
-                                        nbinsx=bins_count,
+                                    go.Bar(
+                                        x=bin_centers,
+                                        y=probability,
+                                        width=bin_width * 0.9,
                                         marker=dict(
                                             color=self.group_colors.get(group_name, '#D62728'),
-                                            line=dict(color='black', width=0.5)  
-                                        ),
-                                        histnorm='probability'
+                                            line=dict(color='black', width=0.5)
+                                        )
                                     )
                                 )
                                 
@@ -880,9 +886,6 @@ class ATESVisualizer:
                                     x_range = np.linspace(data.min(), data.max(), 100)
                                     mu, sigma = data.mean(), data.std()
                                     if sigma > 0:
-                                        _, bin_edges = np.histogram(data, bins=bins_count)
-                                        bin_width = bin_edges[1] - bin_edges[0]
-                                        
                                         normal_density = stats.norm.pdf(x_range, mu, sigma)
                                         normal_probability = normal_density * bin_width
                                         
@@ -905,13 +908,13 @@ class ATESVisualizer:
                                     height=350,
                                     showlegend=False,
                                     margin=dict(l=40, r=40, t=40, b=40),
-                                    font=dict(color='black'),  
+                                    font=dict(color='black'),
                                     xaxis=dict(
                                         title="Value",
-                                        linecolor='black',     
-                                        tickcolor='black',     
-                                        ticks='outside',      
-                                        showline=True,         
+                                        linecolor='black',
+                                        tickcolor='black',
+                                        ticks='outside',
+                                        showline=True,
                                         mirror=True,
                                         tickfont=dict(color='black'),
                                         title_font=dict(color='black'),
@@ -920,17 +923,18 @@ class ATESVisualizer:
                                     ),
                                     yaxis=dict(
                                         title="Probability",
-                                        linecolor='black',     
-                                        tickcolor='black',     
-                                        ticks='outside',      
-                                        showline=True,        
+                                        linecolor='black',
+                                        tickcolor='black',
+                                        ticks='outside',
+                                        showline=True,
                                         mirror=True,
                                         tickfont=dict(color='black'),
                                         title_font=dict(color='black'),
                                         showgrid=False
                                     ),
-                                    plot_bgcolor='white',     
-                                    paper_bgcolor='white'     
+                                    bargap=0,
+                                    plot_bgcolor='white',
+                                    paper_bgcolor='white'
                                 )
                             
                             mean_val = safe_float(data.mean())
