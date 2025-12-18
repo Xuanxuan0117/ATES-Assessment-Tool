@@ -105,12 +105,8 @@ def sync_param_to_distribution(param_name: str, value: float):
             dist['value'] = value
             dist['mean'] = value
             dist['most_likely'] = value
-            
-            # update range if it was auto-calculated
-            if abs(dist['min'] - dist['max']) < 1e-6:
-                dist['min'] = value * 0.8
-                dist['max'] = value * 1.2
-            
+            dist['min'] = value * 0.8
+            dist['max'] = value * 1.2
             dist['std'] = max(value * 0.1, 0.01)
 
 def sync_all_params_to_distributions():

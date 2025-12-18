@@ -623,17 +623,23 @@ def render_distribution_preview(param_name: str, dist_config: Dict, param_label:
             xaxis=dict(
                 linecolor='black',
                 tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
                 ticks='outside',
                 showline=True,
                 mirror=True,
+                showgrid=False,
             ),
             yaxis=dict(
                 linecolor='black',
                 tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
                 ticks='outside',
                 showline=True,
                 mirror=True,
-                automargin=True  
+                automargin=True,
+                showgrid=False,
             ),
             plot_bgcolor='white',
             paper_bgcolor='white'

@@ -628,38 +628,89 @@ class ATESAppState:
             'version': '1.0.0'
         }
         
-        # ATES parameters
+        # Display name mapping 
+        display_names = {
+            'aquifer_temp': 'Aquifer Temperature (°C)',
+            'water_density': 'Water Density (kg/m³)',
+            'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
+            'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+            'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
+            'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
+            'heating_number_of_doublets': 'Number of Doublets',
+            'heating_days': 'Heating Days',
+            'cooling_days': 'Cooling Days',
+            'pump_energy_density': 'Hydraulic Pump Energy Density (kJ/m³)',
+            'heating_ave_injection_temp': 'Cool Well Injection Temperature (°C)',
+            'heating_temp_to_building': 'Building Heating Temperature (°C)',
+            'cop_param_a': 'COP Parameter A (-)',
+            'cop_param_b': 'COP Parameter B (-)',
+            'cop_param_c': 'COP Parameter C (-)',
+            'cop_param_d': 'COP Parameter D (-)',
+            'carbon_intensity': 'Carbon Intensity (gCO₂/kWh)',
+            'cooling_ave_injection_temp': 'Warm Well Injection Temperature (°C)',
+            'cooling_temp_to_building': 'Building Cooling Temperature (°C)'
+        }
+        
+        # ATES parameters 
         if 'ates_params' in st.session_state:
             params = st.session_state.ates_params
             data['ates_parameters'] = {
-                'aquifer_temp': params.aquifer_temp,
-                'water_density': params.water_density,
-                'water_specific_heat_capacity': params.water_specific_heat_capacity,
-                'thermal_recovery_factor': params.thermal_recovery_factor,
-                'heating_target_avg_flowrate_pd': params.heating_target_avg_flowrate_pd,
-                'tolerance_in_energy_balance': params.tolerance_in_energy_balance,
-                'heating_number_of_doublets': params.heating_number_of_doublets,
-                'heating_days': params.heating_days,
-                'cooling_days': params.cooling_days,
-                'pump_energy_density': params.pump_energy_density,
-                'heating_ave_injection_temp': params.heating_ave_injection_temp,
-                'heating_temp_to_building': params.heating_temp_to_building,
-                'cop_param_a': params.cop_param_a,
-                'cop_param_b': params.cop_param_b,
-                'cop_param_c': params.cop_param_c,
-                'cop_param_d': params.cop_param_d,
-                'carbon_intensity': params.carbon_intensity,
-                'cooling_ave_injection_temp': params.cooling_ave_injection_temp,
-                'cooling_temp_to_building': params.cooling_temp_to_building
+                display_names['aquifer_temp']: params.aquifer_temp,
+                display_names['water_density']: params.water_density,
+                display_names['water_specific_heat_capacity']: params.water_specific_heat_capacity,
+                display_names['thermal_recovery_factor']: params.thermal_recovery_factor,
+                display_names['heating_target_avg_flowrate_pd']: params.heating_target_avg_flowrate_pd,
+                display_names['tolerance_in_energy_balance']: params.tolerance_in_energy_balance,
+                display_names['heating_number_of_doublets']: params.heating_number_of_doublets,
+                display_names['heating_days']: params.heating_days,
+                display_names['cooling_days']: params.cooling_days,
+                display_names['pump_energy_density']: params.pump_energy_density,
+                display_names['heating_ave_injection_temp']: params.heating_ave_injection_temp,
+                display_names['heating_temp_to_building']: params.heating_temp_to_building,
+                display_names['cop_param_a']: params.cop_param_a,
+                display_names['cop_param_b']: params.cop_param_b,
+                display_names['cop_param_c']: params.cop_param_c,
+                display_names['cop_param_d']: params.cop_param_d,
+                display_names['carbon_intensity']: params.carbon_intensity,
+                display_names['cooling_ave_injection_temp']: params.cooling_ave_injection_temp,
+                display_names['cooling_temp_to_building']: params.cooling_temp_to_building
             }
         
         # Probability distributions 
         try:
             param_distributions = getattr(st.session_state, 'param_distributions', {})
             if param_distributions and isinstance(param_distributions, dict):
-                data['param_distributions'] = param_distributions
+                # Display name mapping
+                display_names = {
+                    'aquifer_temp': 'Aquifer Temperature (°C)',
+                    'water_density': 'Water Density (kg/m³)',
+                    'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
+                    'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+                    'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
+                    'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
+                    'heating_number_of_doublets': 'Number of Doublets',
+                    'heating_days': 'Heating Days',
+                    'cooling_days': 'Cooling Days',
+                    'pump_energy_density': 'Hydraulic Pump Energy Density (kJ/m³)',
+                    'heating_ave_injection_temp': 'Cool Well Injection Temperature (°C)',
+                    'heating_temp_to_building': 'Building Heating Temperature (°C)',
+                    'cop_param_a': 'COP Parameter A (-)',
+                    'cop_param_b': 'COP Parameter B (-)',
+                    'cop_param_c': 'COP Parameter C (-)',
+                    'cop_param_d': 'COP Parameter D (-)',
+                    'carbon_intensity': 'Carbon Intensity (gCO₂/kWh)',
+                    'cooling_ave_injection_temp': 'Warm Well Injection Temperature (°C)',
+                    'cooling_temp_to_building': 'Building Cooling Temperature (°C)'
+                }
+                
+                # Convert to display names
+                converted_distributions = {}
+                for key, value in param_distributions.items():
+                    display_key = display_names.get(key, key)
+                    converted_distributions[display_key] = value
+                
+                data['param_distributions'] = converted_distributions
         except Exception:
-            # type error skip probability distribution saving
             pass
         
         return data
@@ -764,10 +815,38 @@ class ATESAppState:
             from tool.core.ates_calculator import ATESParameters
             params_dict = state_data['ates_parameters']
             
+            # Reverse mapping 
+            reverse_names = {
+                'Aquifer Temperature (°C)': 'aquifer_temp',
+                'Water Density (kg/m³)': 'water_density',
+                'Water Specific Heat Capacity (J/kg/K)': 'water_specific_heat_capacity',
+                'Thermal Recovery Factor (-)': 'thermal_recovery_factor',
+                'Target Flow Rate Heating (m³/hr)': 'heating_target_avg_flowrate_pd',
+                'Energy Balance Tolerance (-)': 'tolerance_in_energy_balance',
+                'Number of Doublets': 'heating_number_of_doublets',
+                'Heating Days': 'heating_days',
+                'Cooling Days': 'cooling_days',
+                'Hydraulic Pump Energy Density (kJ/m³)': 'pump_energy_density',
+                'Cool Well Injection Temperature (°C)': 'heating_ave_injection_temp',
+                'Building Heating Temperature (°C)': 'heating_temp_to_building',
+                'COP Parameter A (-)': 'cop_param_a',
+                'COP Parameter B (-)': 'cop_param_b',
+                'COP Parameter C (-)': 'cop_param_c',
+                'COP Parameter D (-)': 'cop_param_d',
+                'Carbon Intensity (gCO₂/kWh)': 'carbon_intensity',
+                'Warm Well Injection Temperature (°C)': 'cooling_ave_injection_temp',
+                'Building Cooling Temperature (°C)': 'cooling_temp_to_building'
+            }
+            
             params = ATESParameters()
             for key, value in params_dict.items():
-                if hasattr(params, key):
-                    setattr(params, key, value)
+                # Try reverse mapping first, then use key directly 
+                if key in reverse_names:
+                    internal_key = reverse_names[key]
+                else:
+                    internal_key = key
+                if hasattr(params, internal_key):
+                    setattr(params, internal_key, value)
             
             st.session_state['ates_params'] = params
         
@@ -776,13 +855,44 @@ class ATESAppState:
             try:
                 loaded_distributions = state_data['param_distributions']
                 if isinstance(loaded_distributions, dict):
+                    # Reverse mapping (display -> internal)
+                    reverse_names = {
+                        'Aquifer Temperature (°C)': 'aquifer_temp',
+                        'Water Density (kg/m³)': 'water_density',
+                        'Water Specific Heat Capacity (J/kg/K)': 'water_specific_heat_capacity',
+                        'Thermal Recovery Factor (-)': 'thermal_recovery_factor',
+                        'Target Flow Rate Heating (m³/hr)': 'heating_target_avg_flowrate_pd',
+                        'Energy Balance Tolerance (-)': 'tolerance_in_energy_balance',
+                        'Number of Doublets': 'heating_number_of_doublets',
+                        'Heating Days': 'heating_days',
+                        'Cooling Days': 'cooling_days',
+                        'Hydraulic Pump Energy Density (kJ/m³)': 'pump_energy_density',
+                        'Cool Well Injection Temperature (°C)': 'heating_ave_injection_temp',
+                        'Building Heating Temperature (°C)': 'heating_temp_to_building',
+                        'COP Parameter A (-)': 'cop_param_a',
+                        'COP Parameter B (-)': 'cop_param_b',
+                        'COP Parameter C (-)': 'cop_param_c',
+                        'COP Parameter D (-)': 'cop_param_d',
+                        'Carbon Intensity (gCO₂/kWh)': 'carbon_intensity',
+                        'Warm Well Injection Temperature (°C)': 'cooling_ave_injection_temp',
+                        'Building Cooling Temperature (°C)': 'cooling_temp_to_building'
+                    }
+                    
+                    # Convert back to internal names
+                    converted_distributions = {}
+                    for key, value in loaded_distributions.items():
+                        if key in reverse_names:
+                            internal_key = reverse_names[key]
+                        else:
+                            internal_key = key  # backward compatibility
+                        converted_distributions[internal_key] = value
+                    
                     st.session_state.update({
-                        'param_distributions': loaded_distributions,
+                        'param_distributions': converted_distributions,
                         'param_config_version': st.session_state.get('param_config_version', 0) + 1,
                         'stable_param_values': {}
                     })
             except Exception:
-                # If there's a type error, use default distributions
                 self._create_fresh_distributions()
         
         

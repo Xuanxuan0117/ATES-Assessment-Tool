@@ -1997,6 +1997,32 @@ class ATESResultsExporter:
         self.sensitivity_results = sensitivity_results
         self.successful_results = monte_carlo_results[monte_carlo_results['success'] == True] if 'success' in monte_carlo_results.columns else monte_carlo_results
     
+
+    def _format_param_name(self, param_name: str) -> str:
+        """Format parameter name for display"""
+        display_names = {
+            'aquifer_temp': 'Aquifer Temperature (°C)',
+            'water_density': 'Water Density (kg/m³)',
+            'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
+            'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+            'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
+            'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
+            'heating_number_of_doublets': 'Number of Doublets',
+            'heating_days': 'Heating Days',
+            'cooling_days': 'Cooling Days',
+            'pump_energy_density': 'Hydraulic Pump Energy Density (kJ/m³)',
+            'heating_ave_injection_temp': 'Cool Well Injection Temperature (°C)',
+            'heating_temp_to_building': 'Building Heating Temperature (°C)',
+            'cop_param_a': 'COP Parameter A (-)',
+            'cop_param_b': 'COP Parameter B (-)',
+            'cop_param_c': 'COP Parameter C (-)',
+            'cop_param_d': 'COP Parameter D (-)',
+            'carbon_intensity': 'Carbon Intensity (gCO₂/kWh)',
+            'cooling_ave_injection_temp': 'Warm Well Injection Temperature (°C)',
+            'cooling_temp_to_building': 'Building Cooling Temperature (°C)'
+        }
+        return display_names.get(param_name, param_name)
+    
     def generate_comprehensive_report(self) -> Dict[str, Any]:
         """
         Generate comprehensive analysis report
@@ -2238,7 +2264,7 @@ class ATESResultsExporter:
             },
             "output_sensitivity": {
                 output: {
-                    "most_sensitive_to": sensitivity_df.iloc[0]['Input_Parameter'],
+                    "most_sensitive_to": self._format_param_name(sensitivity_df.iloc[0]['Input_Parameter']),
                     "max_correlation": round(safe_float(sensitivity_df.iloc[0]['Abs_Pearson']), 4),
                     "parameters_analyzed": len(sensitivity_df)
                 }
@@ -2301,7 +2327,31 @@ class ATESResultsExporter:
 #     with tab4:
 #         render_summary_report_tab()
 
-
+def _format_param_name(self, param_name: str) -> str:
+    """Format parameter name for display"""
+    display_names = {
+        'aquifer_temp': 'Aquifer Temperature (°C)',
+        'water_density': 'Water Density (kg/m³)',
+        'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
+        'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+        'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
+        'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
+        'heating_number_of_doublets': 'Number of Doublets',
+        'heating_days': 'Heating Days',
+        'cooling_days': 'Cooling Days',
+        'pump_energy_density': 'Hydraulic Pump Energy Density (kJ/m³)',
+        'heating_ave_injection_temp': 'Cool Well Injection Temperature (°C)',
+        'heating_temp_to_building': 'Building Heating Temperature (°C)',
+        'cop_param_a': 'COP Parameter A (-)',
+        'cop_param_b': 'COP Parameter B (-)',
+        'cop_param_c': 'COP Parameter C (-)',
+        'cop_param_d': 'COP Parameter D (-)',
+        'carbon_intensity': 'Carbon Intensity (gCO₂/kWh)',
+        'cooling_ave_injection_temp': 'Warm Well Injection Temperature (°C)',
+        'cooling_temp_to_building': 'Building Cooling Temperature (°C)'
+    }
+    return display_names.get(param_name, param_name)
+    
 def render_summary_report_tab():
     """
     Render comprehensive summary report tab
