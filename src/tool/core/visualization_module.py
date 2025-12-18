@@ -898,10 +898,11 @@ class ATESVisualizer:
                                 fig.update_layout(
                                     title={
                                         'text': group_params.get(param, param),
+                                        'x': 0.5,
+                                        'xanchor': 'center',
                                         'font': dict(color='black', size=12)
                                     },
                                     height=350,
-                                    title_x=0.5,
                                     showlegend=False,
                                     margin=dict(l=40, r=40, t=40, b=40),
                                     font=dict(color='black'),  
