@@ -196,8 +196,11 @@ class ATESMonteCarloEngine:
         for param_name, value in parameter_row.items():
             param_str = str(param_name)
             if hasattr(params, param_str):
-                # set the sampled valye
-                setattr(params, param_str, float(value))
+                # Handle integer parameters
+                if 'number_of_doublets' in param_str:
+                    setattr(params, param_str, int(round(value)))
+                else:
+                    setattr(params, param_str, float(value))
         # recompute derived fields
         params.__post_init__()
         return params
@@ -533,9 +536,9 @@ class ATESMonteCarloEngine:
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             # correctly associate each chunk with its global start index
             future_to_info = {
-                executor.submit(self._process_chunk, chunk, idx * self.config.chunk_size): (chunk, idx * self.config.chunk_size)
+                executor.submit(self._process_chunk, chunk, idx * self.config.chunk_size): (chunk, idx * self.config.chunk_size) # type: ignore
                 for idx, chunk in enumerate(chunks)
-            }
+            } 
 
             for future in as_completed(future_to_info):
                 chunk, start_index = future_to_info[future]
@@ -661,7 +664,7 @@ class ATESMonteCarloEngine:
             raise ValueError("No successful calculations for sensitivity analysis")
         
         # Get mask for analyzable cases (normal + direct mode, exclude errors)
-        analyzable_mask = self._get_analyzable_cases_mask(successful_results)
+        analyzable_mask = self._get_analyzable_cases_mask(successful_results) # type: ignore
         analyzable_results = successful_results[analyzable_mask].copy()
         
         if len(analyzable_results) < 10:
@@ -693,7 +696,7 @@ class ATESMonteCarloEngine:
         print(f"Sensitivity analysis: Processing {len(output_params)} output parameters on {len(analyzable_results_filtered)} analyzable cases")
         
         # Log case breakdown
-        self._log_case_breakdown(successful_results)
+        self._log_case_breakdown(successful_results) # type: ignore
         
         # initialize results dictionary to store correlation analysis for each output parameter
         sensitivity_results: Dict[str, pd.DataFrame] = {}

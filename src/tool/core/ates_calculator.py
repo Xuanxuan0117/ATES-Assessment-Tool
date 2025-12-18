@@ -640,7 +640,7 @@ class ATESCalculator:
         # EBR = (N19 - K19) / (K19 + N19)
         total_energy = r.heating_annual_energy_aquifer_J + r.cooling_annual_energy_aquifer_J
         if total_energy > 0:
-            r.energy_balance_ratio = (r.cooling_annual_energy_aquifer_J - r.heating_annual_energy_aquifer_J) / total_energy
+            r.energy_balance_ratio = round((r.cooling_annual_energy_aquifer_J - r.heating_annual_energy_aquifer_J) / total_energy,6)
         else:
             r.energy_balance_ratio = 0.0
 
@@ -648,7 +648,7 @@ class ATESCalculator:
         # VBR = (D21 - G21) / (D21 + G21)
         total_volume = p.heating_total_produced_volume + p.cooling_total_produced_volume
         if total_volume > 0:
-            r.volume_balance_ratio = (p.cooling_total_produced_volume - p.heating_total_produced_volume) / total_volume
+            r.volume_balance_ratio = round((p.cooling_total_produced_volume - p.heating_total_produced_volume) / total_volume,6)
         else:
             r.volume_balance_ratio = 0.0
 

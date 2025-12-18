@@ -132,24 +132,77 @@ class ATESAppState:
         last_saved = st.session_state.get('case_last_saved')
         if last_saved:
             st.sidebar.caption(f"Last saved: {last_saved}")
+
+
+    def _check_unsaved_parameter_changes(self) -> bool:
+        """Check if there are unsaved parameter changes"""
+        if 'ates_params' not in st.session_state:
+            return False
+        
+        params = st.session_state.ates_params
+        v = st.session_state.get('input_widget_version', 0)
+        
+        # params name, widget key and temp key
+        mappings = [
+            ('aquifer_temp', f'aquifer_temp_v{v}', '_temp_aquifer_temp'),
+            ('water_density', f'water_density_v{v}', '_temp_water_density'),
+            ('water_specific_heat_capacity', f'water_specific_heat_capacity_v{v}', '_temp_water_specific_heat_capacity'),
+            ('heating_days', f'heating_days_v{v}', '_temp_heating_days'),
+            ('cooling_days', f'cooling_days_v{v}', '_temp_cooling_days'),
+            ('heating_temp_to_building', f'heating_temp_to_building_v{v}', '_temp_heating_temp_to_building'),
+            ('cooling_temp_to_building', f'cooling_temp_to_building_v{v}', '_temp_cooling_temp_to_building'),
+            ('heating_target_avg_flowrate_pd', f'heating_target_avg_flowrate_pd_v{v}', '_temp_heating_target_avg_flowrate_pd'),
+            ('heating_number_of_doublets', f'heating_number_of_doublets_v{v}', '_temp_heating_number_of_doublets'),
+            ('heating_ave_injection_temp', f'heating_ave_injection_temp_v{v}', '_temp_heating_ave_injection_temp'),
+            ('thermal_recovery_factor', f'thermal_recovery_factor_v{v}', '_temp_thermal_recovery_factor'),
+            ('tolerance_in_energy_balance', f'tolerance_in_energy_balance_v{v}', '_temp_tolerance_in_energy_balance'),
+            ('cooling_ave_injection_temp', f'cooling_ave_injection_temp_v{v}', '_temp_cooling_ave_injection_temp'),
+            ('cop_param_a', f'cop_param_a_v{v}', '_temp_cop_param_a'),
+            ('cop_param_b', f'cop_param_b_v{v}', '_temp_cop_param_b'),
+            ('cop_param_c', f'cop_param_c_v{v}', '_temp_cop_param_c'),
+            ('cop_param_d', f'cop_param_d_v{v}', '_temp_cop_param_d'),
+            ('pump_energy_density', f'pump_energy_density_v{v}', '_temp_pump_energy_density'),
+            ('carbon_intensity', f'carbon_intensity_v{v}', '_temp_carbon_intensity'),
+        ]
+        
+        for param_name, widget_key, temp_key in mappings:
+            if not hasattr(params, param_name):
+                continue
+                
+            param_value = getattr(params, param_name)
+            
+            # priortize widget key, then temp key
+            if widget_key in st.session_state:
+                current_value = st.session_state[widget_key]
+            elif temp_key in st.session_state:
+                current_value = st.session_state[temp_key]
+            else:
+                continue
+            
+            try:
+                if abs(float(current_value) - float(param_value)) > 1e-9:
+                    return True
+            except (TypeError, ValueError):
+                if current_value != param_value:
+                    return True
+        
+        return False
     
     def _render_save_section_stable(self, current_name: str):
         """Render save options
         """
         st.sidebar.markdown("**Save Case**")
         
-        # Use fixed key to avoid component recreation
+        # Initialize key if not exists
+        if "stable_case_name_input" not in st.session_state:
+            st.session_state["stable_case_name_input"] = current_name
+        
+        # Use key only, no value parameter
         new_case_name = st.sidebar.text_input(
             "Case Name",
-            value=current_name,
             key="stable_case_name_input",
             help="Enter a name for your case"
         )
-        
-        # Only update when truly changed
-        if new_case_name != current_name and new_case_name.strip():
-            st.session_state['case_name'] = new_case_name.strip()
-            self._mark_case_modified_safe()
         
         # Save options
         save_options = st.sidebar.selectbox(
@@ -159,9 +212,18 @@ class ATESAppState:
             help="Choose what to save"
         )
         
+        # Check for unsaved parameter changes
+        has_unsaved_changes = self._check_unsaved_parameter_changes()
+        
+        if has_unsaved_changes:
+            st.sidebar.warning("You have unsaved parameter changes. Click 'Calculate' first to include them in the save.")
+        
         # Save button
         if st.sidebar.button("Save Case", type="primary", width="stretch", key="stable_save_btn"):
-            self._save_case_with_name(save_options, new_case_name or current_name)
+            if has_unsaved_changes:
+                st.sidebar.error("Please click 'Calculate' before saving to ensure parameters and results are consistent.")
+            else:
+                self._save_case_with_name(save_options, new_case_name or current_name)
     
     def _render_load_section_stable(self):
         """Render load options - stable version"""
@@ -212,7 +274,8 @@ class ATESAppState:
         
         # Keep core system components
         core_keys = {
-            'app_state_manager'
+            'app_state_manager',
+            'input_widget_version'
         }
         
         # Atomic clear all non-core state
@@ -248,6 +311,7 @@ class ATESAppState:
         
         # Case management state - true initial state
         st.session_state['case_name'] = 'Default'
+        st.session_state['stable_case_name_input'] = 'Default'
         st.session_state['case_modified'] = False  # Explicitly mark as unmodified
         st.session_state.pop('_confirm_new_case_shown', None)
         st.session_state['case_last_saved'] = None
@@ -281,8 +345,11 @@ class ATESAppState:
         
         # Navigation stability
         st.session_state['_navigation_stable'] = True
+        self._sync_params_to_temp_variables() 
         
         # Ensure not marked as modified after initialization completion
+        # Force widget refresh by incrementing version
+        st.session_state['input_widget_version'] = st.session_state.get('input_widget_version', 0) + 1
         st.session_state['case_modified'] = False
     
     def _create_fresh_distributions(self):
@@ -404,8 +471,12 @@ class ATESAppState:
             
             # Set case information
             st.session_state['case_name'] = case_name
-            st.session_state['case_modified'] = False  # Loaded file is unmodified
+            st.session_state['stable_case_name_input'] = case_name  
+            st.session_state['case_modified'] = False  
             st.session_state['case_last_saved'] = None
+            
+            # Force widget refresh after loading new data
+            st.session_state['input_widget_version'] = st.session_state.get('input_widget_version', 0) + 1
             
             # Re-calculate derived parameters
             if hasattr(st.session_state.ates_params, '__post_init__'):
@@ -424,7 +495,7 @@ class ATESAppState:
         st.session_state['_state_initializing'] = True
         
        
-        core_keys = {'app_state_manager', '_state_initializing', '_last_uploaded_file_id'}
+        core_keys = {'app_state_manager', '_state_initializing', '_last_uploaded_file_id','input_widget_version'}
         
      
         keys_to_clear = [key for key in list(st.session_state.keys()) if key not in core_keys]
@@ -515,6 +586,9 @@ class ATESAppState:
             )
             st.session_state['param_config_version'] = st.session_state.get('param_config_version', 0) + 1
             st.session_state['stable_param_values'] = {}
+        
+        # Force widget refresh
+        st.session_state['input_widget_version'] = st.session_state.get('input_widget_version', 0) + 1
         
         return True
 

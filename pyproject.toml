@@ -20,7 +20,7 @@ classifiers = [
 dependencies = [
     "pandas",
     "numpy",
-    "streamlit",
+    "streamlit>=1.41.0",
     "scipy",
     "plotly"
 ]

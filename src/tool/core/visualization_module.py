@@ -183,17 +183,18 @@ class ATESVisualizer:
         
         # Color scheme for different parameter groups
         self.group_colors = {
-            'Heating System - Key Performance': '#FF6B6B',
-            'Heating System - Energy & Storage': '#FF8E53', 
-            'Heating System - Flow & Temperature': '#FF6B9D',
-            'Heating System - Power': '#C44569',
-            'Heating System - Heat Pump & Electrical': '#F8B500',
-            'Cooling System - Key Performance': '#4ECDC4',
-            'Cooling System - Energy & Storage': '#45B7D1',
-            'Cooling System - Flow & Temperature': '#96CEB4', 
-            'Cooling System - Power': '#FFEAA7',
-            'Cooling System - Heat Pump & Electrical': '#DDA0DD',
-            'System Balance & Overall': '#6C5CE7'
+            'Heating System - Key Performance': "#D62728",
+            'Heating System - Energy & Storage': "#D62728", 
+            'Heating System - Flow & Temperature': "#D62728",
+            'Heating System - Power': '#D62728',
+            'Heating System - Heat Pump & Electrical': '#D62728',
+            'Cooling System - Key Performance': '#0D6EFD',
+            'Cooling System - Energy & Storage': '#0D6EFD',
+            'Cooling System - Flow & Temperature': '#0D6EFD', 
+            'Cooling System - Power': '#0D6EFD',
+            'Cooling System - Heat Pump & Electrical': '#0D6EFD',
+            'System Balance': '#7F7F7F',
+            'System Balance & Overall': '#7F7F7F'
         }
     
     def render_distribution_plots(self):
@@ -454,475 +455,496 @@ class ATESVisualizer:
         # self._plot_correlation_matrix(selected_params, corr_method)
 
     def _plot_histograms(self, selected_params: List[str], group_params: Dict[str, str], group_name: str):
-        """
-        istogram plotting with data cleaning and dual Y-axis support
-        """
-        n_params = len(selected_params)
-        
-        # Display options
-        with st.expander("Display Options", expanded=False):
-            col1, col2, col3 = st.columns(3)
+            """
+            Histogram plotting with data cleaning and dual Y-axis support
+            """
+            n_params = len(selected_params)
             
-            with col1:
-                show_fit_line = st.checkbox("Show Normal Fit Line", value=False, key="fit_line_option")
-            with col2:
-                show_dual_axis = st.checkbox("Enable Dual Y-Axis", value=True, key="dual_axis_option")
-            with col3:
-                bins_count = st.slider("Number of Bins", 20, 100, 50, key="bins_option")
-        
-        if n_params == 1:
-            param = selected_params[0]
-            raw_data = self.successful_results[param]
-            
-            # Clean data 
-            data = raw_data.dropna()
-            data = data[np.isfinite(data)]
-            
-            if len(data) == 0:
-                st.warning(f"No finite data available for {group_params.get(param, param)}")
-                return
-            
-            # Check if we had infinite values and inform user
-            infinite_count = len(raw_data) - len(raw_data.dropna()) - len(data)
-            if infinite_count > 0:
-                st.info(f"Note: {infinite_count} infinite values (direct mode) excluded from histogram")
-            
-            if show_dual_axis:
-                # Create figure with secondary y-axis
-                fig = make_subplots(specs=[[{"secondary_y": True}]])
+            with st.expander("Display Options", expanded=False):
+                col1, col2, col3 = st.columns(3)
                 
-                # Calculate histogram data manually
-                counts, bin_edges = np.histogram(data, bins=bins_count)
-                bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-                bin_width = bin_edges[1] - bin_edges[0]
+                with col1:
+                    show_fit_line = st.checkbox("Show Normal Fit Line", value=False, key="fit_line_option")
+                with col2:
+                    show_dual_axis = st.checkbox("Enable Dual Y-Axis", value=True, key="dual_axis_option")
+                with col3:
+                    bins_count = st.slider("Number of Bins", 20, 100, 50, key="bins_option")
+            
+            if n_params == 1:
+                param = selected_params[0]
+                raw_data = self.successful_results[param]
                 
-                # Calculate probability
-                probability = counts / len(data)
+                data = raw_data.dropna()
+                data = data[np.isfinite(data)]
                 
-                # Add probability bars (primary Y-axis)
-                fig.add_trace(
-                    go.Bar(
-                        x=bin_centers,
-                        y=probability,
-                        width=bin_width * 0.9,
-                        name="Probability",
-                        marker=dict(
-                            color=self.group_colors.get(group_name, '#FF6B6B'),
-                            line=dict(color='black', width=0.5)  
+                if len(data) == 0:
+                    st.warning(f"No finite data available for {group_params.get(param, param)}")
+                    return
+                
+                infinite_count = len(raw_data) - len(raw_data.dropna()) - len(data)
+                if infinite_count > 0:
+                    st.info(f"Note: {infinite_count} infinite values (direct mode) excluded from histogram")
+                
+                # pick tickformat
+                data_range = data.max() - data.min()
+                if data_range < 0.01:
+                    tick_format = '.6f'
+                elif data_range < 1:
+                    tick_format = '.4f'
+                elif data_range > 10000:
+                    tick_format = '.2e'
+                else:
+                    tick_format = '.2f'
+                
+                if show_dual_axis:
+                    fig = make_subplots(specs=[[{"secondary_y": True}]])
+                    
+                    counts, bin_edges = np.histogram(data, bins=bins_count)
+                    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+                    bin_width = bin_edges[1] - bin_edges[0]
+                    probability = counts / len(data)
+                    
+                    fig.add_trace(
+                        go.Bar(
+                            x=bin_centers,
+                            y=probability,
+                            width=bin_width * 0.9,
+                            name="Probability",
+                            marker=dict(
+                                color=self.group_colors.get(group_name, '#D62728'),
+                                line=dict(color='black', width=0.5)
+                            ),
+                            offsetgroup=0,
+                            yaxis='y'
                         ),
-                        opacity=0.7,
-                        offsetgroup=0,
-                        yaxis='y'
-                    ),
-                )
-                
-                # Add frequency bars (secondary Y-axis)
-                fig.add_trace(
-                    go.Bar(
-                        x=bin_centers,
-                        y=counts,
-                        width=bin_width * 0.9,
-                        name="Frequency",
-                        marker=dict(
-                            color='lightblue',
-                            line=dict(color='black', width=0.5)  
-                        ),
-                        opacity=0.4,
-                        offsetgroup=0,
-                        yaxis='y2'
-                    ),
-                )
-                
-                # Add normal fit line if requested
-                if show_fit_line and len(data) > 10:
-                    x_range = np.linspace(data.min(), data.max(), 200)
-                    mu, sigma = data.mean(), data.std()
-                    if sigma > 0:
-                        normal_density = stats.norm.pdf(x_range, mu, sigma)
-                        normal_probability = normal_density * bin_width
-                        
-                        fig.add_trace(
-                            go.Scatter(
-                                x=x_range,
-                                y=normal_probability,
-                                mode='lines',
-                                name='Normal Fit',
-                                line=dict(color='orange', width=3, dash='dot'),
-                                showlegend=True,
-                                yaxis='y' 
-                            )
-                        )
-                
-                # Configure layout with proper dual Y-axis 
-                fig.update_layout(
-                        title={
-                        'text': f"Distribution: {group_params.get(param, param)}",
-                        'x': 0.5,
-                        'xanchor': 'center',
-                        'yanchor': 'top'
-                    },
-                    height=500,
-                    font=dict(color='black'),  
-                    xaxis=dict(
-                        title=group_params.get(param, param),
-                        linecolor='black',     
-                        tickcolor='black',    
-                        ticks='outside',      
-                        showline=True,         
-                        mirror=True          
-                    ),
-                    yaxis=dict(
-                        title="Probability", 
-                        side="left",
-                        range=[0, max(probability) * 1.1] if len(probability) > 0 else [0, 1],
-                        linecolor='black',     
-                        tickcolor='black',     
-                        ticks='outside',      
-                        showline=True,        
-                        mirror=True           
-                    ),
-                    yaxis2=dict(
-                        title="Frequency",
-                        side="right",
-                        overlaying="y",
-                        range=[0, max(counts) * 1.1] if len(counts) > 0 else [0, 1],
-                        linecolor='black',   
-                        tickcolor='black',     
-                        ticks='outside',     
-                        showline=True        
-                    ),
-                    showlegend=True,
-                    legend=dict(
-                        orientation="h",
-                        yanchor="bottom",
-                        y=1.02,
-                        xanchor="right",
-                        x=1
-                    ),
-                    barmode='overlay',
-                    bargap=0,
-                    bargroupgap=0,
-                    plot_bgcolor='white',    
-                    paper_bgcolor='white'     
-                )
-                
-            else:
-                # Single Y-axis mode 
-                fig = go.Figure()
-                fig.add_trace(
-                    go.Histogram(
-                        x=data,
-                        nbinsx=bins_count,
-                        name="Distribution",
-                        marker=dict(
-                            color=self.group_colors.get(group_name, '#FF6B6B'),
-                            line=dict(color='black', width=0.5)  
-                        ),
-                        opacity=0.7,
-                        histnorm='probability' 
                     )
-                )
-                
-                # Add normal fit line if requested
-                if show_fit_line and len(data) > 10:
-                    x_range = np.linspace(data.min(), data.max(), 200)
-                    mu, sigma = data.mean(), data.std()
-                    if sigma > 0:
-                        # Calculate bin width for proper scaling
-                        _, bin_edges = np.histogram(data, bins=bins_count)
-                        bin_width = bin_edges[1] - bin_edges[0]
-                        
-                        normal_density = stats.norm.pdf(x_range, mu, sigma)
-                        normal_probability = normal_density * bin_width
-                        
-                        fig.add_trace(
-                            go.Scatter(
-                                x=x_range,
-                                y=normal_probability,
-                                mode='lines',
-                                name='Normal Fit',
-                                line=dict(color='orange', width=3, dash='dot'),
-                                showlegend=True
+                    
+                    fig.add_trace(
+                        go.Bar(
+                            x=bin_centers,
+                            y=counts,
+                            width=bin_width * 0.9,
+                            name="Frequency",
+                            marker=dict(
+                                color='rgba(0,0,0,0)',
+                                line=dict(color='rgba(0,0,0,0)', width=0)
+                            ),
+                            opacity=0,
+                            offsetgroup=0,
+                            yaxis='y2'
+                        ),
+                    )
+                    
+                    if show_fit_line and len(data) > 10:
+                        x_range = np.linspace(data.min(), data.max(), 200)
+                        mu, sigma = data.mean(), data.std()
+                        if sigma > 0:
+                            normal_density = stats.norm.pdf(x_range, mu, sigma)
+                            normal_probability = normal_density * bin_width
+                            
+                            fig.add_trace(
+                                go.Scatter(
+                                    x=x_range,
+                                    y=normal_probability,
+                                    mode='lines',
+                                    name='Normal Fit',
+                                    line=dict(color='black', width=2, dash='dot'),
+                                    showlegend=True,
+                                    yaxis='y' 
+                                )
                             )
+                    
+                    fig.update_layout(
+                        title={
+                            'text': f"Distribution: {group_params.get(param, param)}",
+                            'x': 0.5,
+                            'xanchor': 'center',
+                            'yanchor': 'top',
+                            'font': dict(color='black')
+                        },
+                        height=500,
+                        font=dict(color='black'),  
+                        xaxis=dict(
+                            title=group_params.get(param, param),
+                            linecolor='black',     
+                            tickcolor='black',    
+                            ticks='outside',      
+                            showline=True,         
+                            mirror=True,
+                            tickfont=dict(color='black'),
+                            title_font=dict(color='black'),
+                            showgrid=False,
+                            tickformat=tick_format
+                        ),
+                        yaxis=dict(
+                            title="Probability", 
+                            side="left",
+                            range=[0, max(probability) * 1.1] if len(probability) > 0 else [0, 1],
+                            linecolor='black',     
+                            tickcolor='black',     
+                            ticks='outside',      
+                            showline=True,        
+                            mirror=True,
+                            tickfont=dict(color='black'),
+                            title_font=dict(color='black'),
+                            showgrid=False
+                        ),
+                        yaxis2=dict(
+                            title="Frequency",
+                            side="right",
+                            overlaying="y",
+                            range=[0, max(counts) * 1.1] if len(counts) > 0 else [0, 1],
+                            linecolor='black',   
+                            tickcolor='black',     
+                            ticks='outside',     
+                            showline=True,
+                            tickfont=dict(color='black'),
+                            title_font=dict(color='black'),
+                            showgrid=False
+                        ),
+                        showlegend=True,
+                        legend=dict(
+                            orientation="h",
+                            yanchor="bottom",
+                            y=1.02,
+                            xanchor="right",
+                            x=1,
+                            font=dict(color='black')
+                        ),
+                        barmode='overlay',
+                        bargap=0,
+                        bargroupgap=0,
+                        plot_bgcolor='white',    
+                        paper_bgcolor='white'     
+                    )
+                    
+                else:
+                    fig = go.Figure()
+                    fig.add_trace(
+                        go.Histogram(
+                            x=data,
+                            nbinsx=bins_count,
+                            name="Distribution",
+                            marker=dict(
+                                color=self.group_colors.get(group_name, '#D62728'),
+                                line=dict(color='black', width=0.5)  
+                            ),
+                            histnorm='probability' 
                         )
-                
-                fig.update_layout(
-                    title={
-                        'text': f"Distribution: {group_params.get(param, param)}",
-                        'x': 0.5,
-                        'xanchor': 'center',
-                        'yanchor': 'top'
-                    },
-                    height=500,
-                    font=dict(color='black'),  
-                    xaxis=dict(
-                        title=group_params.get(param, param),
-                        linecolor='black',     
-                        tickcolor='black',     
-                        ticks='outside',      
-                        showline=True,         
-                        mirror=True            
-                    ),
-                    yaxis=dict(
-                        title="Probability",
-                        linecolor='black',     
-                        tickcolor='black',     
-                        ticks='outside',       
-                        showline=True,        
-                        mirror=True            
-                    ),
-                    plot_bgcolor='white',      
-                    paper_bgcolor='white'      
-                )
-            
-            # Add statistical lines
-            mean_val = safe_float(data.mean())
-            median_val = safe_float(data.median())
-            
-            fig.add_vline(x=mean_val, line_dash="dash", line_color="red", 
-                        annotation_text=f"Mean: {mean_val:.3f}")
-            fig.add_vline(x=median_val, line_dash="dash", line_color="blue",
-                        annotation_text=f"Median: {median_val:.3f}")
-            
-            st.plotly_chart(fig, width="stretch")
-            
-            # Show statistical summary
-            st.markdown("### Statistical Summary")
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Count", f"{len(data):,}")
-            with col2:
-                st.metric("Mean", f"{mean_val:.4f}")
-            with col3:
-                st.metric("Median", f"{safe_float(data.median()):.4f}")
-            with col4:
-                st.metric("Std Dev", f"{safe_float(data.std()):.4f}")
-        
-        else:
-            # Multiple parameters handling
-            cols = min(2, n_params)
-            
-            for i in range(0, len(selected_params), cols):
-                plot_cols = st.columns(cols)
-                
-                for j in range(cols):
-                    if i + j < len(selected_params):
-                        param = selected_params[i + j]
-                        raw_data = self.successful_results[param]
-                        
-                        # Clean data for each parameter
-                        data = raw_data.dropna()
-                        data = data[np.isfinite(data)]
-                        
-                        if len(data) == 0:
-                            with plot_cols[j]:
-                                st.warning(f"No finite data for {group_params.get(param, param)}")
-                            continue
-                        
-                        # Check for infinite values
-                        infinite_count = len(raw_data) - len(raw_data.dropna()) - len(data)
-                        
-                        if show_dual_axis:
-                            # Create subplot with dual Y-axis
-                            fig = make_subplots(specs=[[{"secondary_y": True}]])
-                            
-                            # Calculate histogram data
-                            counts, bin_edges = np.histogram(data, bins=bins_count)
-                            bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+                    )
+                    
+                    if show_fit_line and len(data) > 10:
+                        x_range = np.linspace(data.min(), data.max(), 200)
+                        mu, sigma = data.mean(), data.std()
+                        if sigma > 0:
+                            _, bin_edges = np.histogram(data, bins=bins_count)
                             bin_width = bin_edges[1] - bin_edges[0]
-                            probability = counts / len(data)
                             
-                            # Probability bars (primary Y-axis)
+                            normal_density = stats.norm.pdf(x_range, mu, sigma)
+                            normal_probability = normal_density * bin_width
+                            
                             fig.add_trace(
-                                go.Bar(
-                                    x=bin_centers,
-                                    y=probability,
-                                    width=bin_width * 0.9,
-                                    name="Probability",
-                                    marker=dict(
-                                        color=self.group_colors.get(group_name, '#FF6B6B'),
-                                        line=dict(color='black', width=0.5)  
-                                    ),
-                                    opacity=0.7,
-                                    offsetgroup=0,
-                                    yaxis='y'
+                                go.Scatter(
+                                    x=x_range,
+                                    y=normal_probability,
+                                    mode='lines',
+                                    name='Normal Fit',
+                                    line=dict(color='black', width=2, dash='dot'),
+                                    showlegend=True
                                 )
                             )
+                    
+                    fig.update_layout(
+                        title={
+                            'text': f"Distribution: {group_params.get(param, param)}",
+                            'x': 0.5,
+                            'xanchor': 'center',
+                            'yanchor': 'top',
+                            'font': dict(color='black')
+                        },
+                        height=500,
+                        font=dict(color='black'),  
+                        xaxis=dict(
+                            title=group_params.get(param, param),
+                            linecolor='black',     
+                            tickcolor='black',     
+                            ticks='outside',      
+                            showline=True,         
+                            mirror=True,
+                            tickfont=dict(color='black'),
+                            title_font=dict(color='black'),
+                            showgrid=False,
+                            tickformat=tick_format
+                        ),
+                        yaxis=dict(
+                            title="Probability",
+                            linecolor='black',     
+                            tickcolor='black',     
+                            ticks='outside',       
+                            showline=True,        
+                            mirror=True,
+                            tickfont=dict(color='black'),
+                            title_font=dict(color='black'),
+                            showgrid=False
+                        ),
+                        plot_bgcolor='white',      
+                        paper_bgcolor='white'      
+                    )
+                
+                mean_val = safe_float(data.mean())
+                median_val = safe_float(data.median())
+                
+                fig.add_vline(x=mean_val, line_dash="dash", line_color="black", 
+                            annotation_text=f"Mean: {mean_val:.3f}",
+                            annotation=dict(font=dict(color='black')))
+                fig.add_vline(x=median_val, line_dash="dash", line_color="blue",
+                            annotation_text=f"Median: {median_val:.3f}",
+                            annotation=dict(font=dict(color='black')))
+                
+                st.plotly_chart(fig, width="stretch")
+                
+                st.markdown("### Statistical Summary")
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Count", f"{len(data):,}")
+                with col2:
+                    st.metric("Mean", f"{mean_val:.4f}")
+                with col3:
+                    st.metric("Median", f"{safe_float(data.median()):.4f}")
+                with col4:
+                    st.metric("Std Dev", f"{safe_float(data.std()):.4f}")
+            
+            else:
+                cols = min(2, n_params)
+                
+                for i in range(0, len(selected_params), cols):
+                    plot_cols = st.columns(cols)
+                    
+                    for j in range(cols):
+                        if i + j < len(selected_params):
+                            param = selected_params[i + j]
+                            raw_data = self.successful_results[param]
                             
-                            # Frequency bars (secondary Y-axis)
-                            fig.add_trace(
-                                go.Bar(
-                                    x=bin_centers,
-                                    y=counts,
-                                    width=bin_width * 0.9,
-                                    name="Frequency",
-                                    marker=dict(
-                                        color='lightblue',
-                                        line=dict(color='black', width=0.5),  
-                                        opacity=0.4
-                                    ),
-                                    offsetgroup=0,
-                                    yaxis='y2'
-                                )
-                            )
+                            data = raw_data.dropna()
+                            data = data[np.isfinite(data)]
                             
-                            # Configure layout 
-                            fig.update_layout(
-                                title={
-                                    'text': group_params.get(param, param),
-                                    'x': 0.5,
-                                    'xanchor': 'center',
-                                    'yanchor': 'top'
-                                },
-                                height=350,
-                                title_x=0.5,
-                                title_font_size=12,
-                                showlegend=False,
-                                margin=dict(l=40, r=40, t=40, b=40),
-                                barmode='overlay',
-                                bargap=0,
-                                bargroupgap=0,
-                                font=dict(color='black'),  
-                                xaxis=dict(
-                                    title="Value",
-                                    linecolor='black',     
-                                    tickcolor='black',   
-                                    ticks='outside',       
-                                    showline=True,         
-                                    mirror=True            
-                                ),
-                                yaxis=dict(
-                                    title="Probability", 
-                                    side="left",
-                                    range=[0, max(probability) * 1.1] if len(probability) > 0 else [0, 1],
-                                    linecolor='black',     
-                                    tickcolor='black',   
-                                    ticks='outside',      
-                                    showline=True,         
-                                    mirror=True           
-                                ),
-                                yaxis2=dict(
-                                    title="Freq", 
-                                    side="right", 
-                                    overlaying="y",
-                                    range=[0, max(counts) * 1.1] if len(counts) > 0 else [0, 1],
-                                    linecolor='black',     
-                                    tickcolor='black',    
-                                    ticks='outside',      
-                                    showline=True          
-                                ),
-                                plot_bgcolor='white',      
-                                paper_bgcolor='white'     
-                            )
+                            if len(data) == 0:
+                                with plot_cols[j]:
+                                    st.warning(f"No finite data for {group_params.get(param, param)}")
+                                continue
                             
-                            # Add normal fit if requested
-                            if show_fit_line and len(data) > 10:
-                                x_range = np.linspace(data.min(), data.max(), 100)
-                                mu, sigma = data.mean(), data.std()
-                                if sigma > 0:
-                                    normal_density = stats.norm.pdf(x_range, mu, sigma)
-                                    normal_probability = normal_density * bin_width
-                                    
-                                    fig.add_trace(
-                                        go.Scatter(
-                                            x=x_range, 
-                                            y=normal_probability,
-                                            mode='lines', 
-                                            name='Fit',
-                                            line=dict(color='orange', width=2, dash='dot'),
-                                            showlegend=False,
-                                            yaxis='y'
-                                        )
+                            infinite_count = len(raw_data) - len(raw_data.dropna()) - len(data)
+                            
+                            # 动态选择 tickformat
+                            data_range = data.max() - data.min()
+                            if data_range < 0.01:
+                                tick_format = '.6f'
+                            elif data_range < 1:
+                                tick_format = '.4f'
+                            elif data_range > 10000:
+                                tick_format = '.2e'
+                            else:
+                                tick_format = '.2f'
+                            
+                            if show_dual_axis:
+                                fig = make_subplots(specs=[[{"secondary_y": True}]])
+                                
+                                counts, bin_edges = np.histogram(data, bins=bins_count)
+                                bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+                                bin_width = bin_edges[1] - bin_edges[0]
+                                probability = counts / len(data)
+                                
+                                fig.add_trace(
+                                    go.Bar(
+                                        x=bin_centers,
+                                        y=probability,
+                                        width=bin_width * 0.9,
+                                        name="Probability",
+                                        marker=dict(
+                                            color=self.group_colors.get(group_name, '#D62728'),
+                                            line=dict(color='black', width=0.5)
+                                        ),
+                                        offsetgroup=0,
+                                        yaxis='y'
                                     )
-                            
-                        else:
-                            # Single Y-axis mode
-                            fig = go.Figure()
-                            fig.add_trace(
-                                go.Histogram(
-                                    x=data,
-                                    nbinsx=bins_count,
-                                    marker=dict(
-                                        color=self.group_colors.get(group_name, '#FF6B6B'),
-                                        line=dict(color='black', width=0.5)  
-                                    ),
-                                    opacity=0.7,
-                                    histnorm='probability'
                                 )
-                            )
-                            
-                            # Add normal fit
-                            if show_fit_line and len(data) > 10:
-                                x_range = np.linspace(data.min(), data.max(), 100)
-                                mu, sigma = data.mean(), data.std()
-                                if sigma > 0:
-                                    _, bin_edges = np.histogram(data, bins=bins_count)
-                                    bin_width = bin_edges[1] - bin_edges[0]
-                                    
-                                    normal_density = stats.norm.pdf(x_range, mu, sigma)
-                                    normal_probability = normal_density * bin_width
-                                    
-                                    fig.add_trace(
-                                        go.Scatter(
-                                            x=x_range, y=normal_probability,
-                                            mode='lines', name='Fit',
-                                            line=dict(color='orange', width=2, dash='dot'),
-                                            showlegend=False
-                                        )
+                                
+                                fig.add_trace(
+                                    go.Bar(
+                                        x=bin_centers,
+                                        y=counts,
+                                        width=bin_width * 0.9,
+                                        name="Frequency",
+                                        marker=dict(
+                                            color='rgba(0,0,0,0)',
+                                            line=dict(color='rgba(0,0,0,0)', width=0)
+                                        ),
+                                        opacity=0,
+                                        offsetgroup=0,
+                                        yaxis='y2'
                                     )
+                                )
+                                
+                                fig.update_layout(
+                                    title={
+                                        'text': group_params.get(param, param),
+                                        'x': 0.5,
+                                        'xanchor': 'center',
+                                        'yanchor': 'top',
+                                        'font': dict(color='black', size=12)
+                                    },
+                                    height=350,
+                                    title_x=0.5,
+                                    showlegend=False,
+                                    margin=dict(l=40, r=40, t=40, b=40),
+                                    barmode='overlay',
+                                    bargap=0,
+                                    bargroupgap=0,
+                                    font=dict(color='black'),  
+                                    xaxis=dict(
+                                        title="Value",
+                                        linecolor='black',     
+                                        tickcolor='black',   
+                                        ticks='outside',       
+                                        showline=True,         
+                                        mirror=True,
+                                        tickfont=dict(color='black'),
+                                        title_font=dict(color='black'),
+                                        showgrid=False,
+                                        tickformat=tick_format
+                                    ),
+                                    yaxis=dict(
+                                        title="Probability", 
+                                        side="left",
+                                        range=[0, max(probability) * 1.1] if len(probability) > 0 else [0, 1],
+                                        linecolor='black',     
+                                        tickcolor='black',   
+                                        ticks='outside',      
+                                        showline=True,         
+                                        mirror=True,
+                                        tickfont=dict(color='black'),
+                                        title_font=dict(color='black'),
+                                        showgrid=False
+                                    ),
+                                    yaxis2=dict(
+                                        title="Freq", 
+                                        side="right", 
+                                        overlaying="y",
+                                        range=[0, max(counts) * 1.1] if len(counts) > 0 else [0, 1],
+                                        linecolor='black',     
+                                        tickcolor='black',    
+                                        ticks='outside',      
+                                        showline=True,
+                                        tickfont=dict(color='black'),
+                                        title_font=dict(color='black'),
+                                        showgrid=False
+                                    ),
+                                    plot_bgcolor='white',      
+                                    paper_bgcolor='white'     
+                                )
+                                
+                                if show_fit_line and len(data) > 10:
+                                    x_range = np.linspace(data.min(), data.max(), 100)
+                                    mu, sigma = data.mean(), data.std()
+                                    if sigma > 0:
+                                        normal_density = stats.norm.pdf(x_range, mu, sigma)
+                                        normal_probability = normal_density * bin_width
+                                        
+                                        fig.add_trace(
+                                            go.Scatter(
+                                                x=x_range, 
+                                                y=normal_probability,
+                                                mode='lines', 
+                                                name='Fit',
+                                                line=dict(color='black', width=2, dash='dot'),
+                                                showlegend=False,
+                                                yaxis='y'
+                                            )
+                                        )
+                                
+                            else:
+                                fig = go.Figure()
+                                fig.add_trace(
+                                    go.Histogram(
+                                        x=data,
+                                        nbinsx=bins_count,
+                                        marker=dict(
+                                            color=self.group_colors.get(group_name, '#D62728'),
+                                            line=dict(color='black', width=0.5)  
+                                        ),
+                                        histnorm='probability'
+                                    )
+                                )
+                                
+                                if show_fit_line and len(data) > 10:
+                                    x_range = np.linspace(data.min(), data.max(), 100)
+                                    mu, sigma = data.mean(), data.std()
+                                    if sigma > 0:
+                                        _, bin_edges = np.histogram(data, bins=bins_count)
+                                        bin_width = bin_edges[1] - bin_edges[0]
+                                        
+                                        normal_density = stats.norm.pdf(x_range, mu, sigma)
+                                        normal_probability = normal_density * bin_width
+                                        
+                                        fig.add_trace(
+                                            go.Scatter(
+                                                x=x_range, y=normal_probability,
+                                                mode='lines', name='Fit',
+                                                line=dict(color='black', width=2, dash='dot'),
+                                                showlegend=False
+                                            )
+                                        )
+                                
+                                fig.update_layout(
+                                    title={
+                                        'text': group_params.get(param, param),
+                                        'font': dict(color='black', size=12)
+                                    },
+                                    height=350,
+                                    title_x=0.5,
+                                    showlegend=False,
+                                    margin=dict(l=40, r=40, t=40, b=40),
+                                    font=dict(color='black'),  
+                                    xaxis=dict(
+                                        title="Value",
+                                        linecolor='black',     
+                                        tickcolor='black',     
+                                        ticks='outside',      
+                                        showline=True,         
+                                        mirror=True,
+                                        tickfont=dict(color='black'),
+                                        title_font=dict(color='black'),
+                                        showgrid=False,
+                                        tickformat=tick_format
+                                    ),
+                                    yaxis=dict(
+                                        title="Probability",
+                                        linecolor='black',     
+                                        tickcolor='black',     
+                                        ticks='outside',      
+                                        showline=True,        
+                                        mirror=True,
+                                        tickfont=dict(color='black'),
+                                        title_font=dict(color='black'),
+                                        showgrid=False
+                                    ),
+                                    plot_bgcolor='white',     
+                                    paper_bgcolor='white'     
+                                )
                             
-                            fig.update_layout(
-                                title=group_params.get(param, param),
-                                height=350,
-                                title_x=0.5,
-                                title_font_size=12,
-                                showlegend=False,
-                                margin=dict(l=40, r=40, t=40, b=40),
-                                font=dict(color='black'),  
-                                xaxis=dict(
-                                    title="Value",
-                                    linecolor='black',     
-                                    tickcolor='black',     
-                                    ticks='outside',      
-                                    showline=True,         
-                                    mirror=True            
-                                ),
-                                yaxis=dict(
-                                    title="Probability",
-                                    linecolor='black',     
-                                    tickcolor='black',     
-                                    ticks='outside',      
-                                    showline=True,        
-                                    mirror=True            
-                                ),
-                                plot_bgcolor='white',     
-                                paper_bgcolor='white'     
-                            )
-                        
-                        # Add mean line
-                        mean_val = safe_float(data.mean())
-                        fig.add_vline(x=mean_val, line_dash="dash", line_color="red", line_width=1)
-                        
-                        with plot_cols[j]:
-                            st.plotly_chart(fig, width="stretch")
+                            mean_val = safe_float(data.mean())
+                            fig.add_vline(x=mean_val, line_dash="dash", line_color="black", line_width=1)
                             
-                            # Statistics below chart
-                            col_stat1, col_stat2 = st.columns(2)
-                            with col_stat1:
-                                st.caption(f"μ: {mean_val:.3f}")
-                            with col_stat2:
-                                st.caption(f"σ: {safe_float(data.std()):.3f}")
-                            
-                            # Show infinite count if any
-                            if infinite_count > 0:
-                                st.caption(f"⚠ {infinite_count} infinite values excluded")
-
+                            with plot_cols[j]:
+                                st.plotly_chart(fig, width="stretch")
+                                
+                                if infinite_count > 0:
+                                    st.caption(f"⚠ {infinite_count} infinite values excluded")
         
     def _plot_box_plots(self, selected_params: List[str], group_params: Dict[str, str], group_name: str):
         """
         Plot box plots for selected parameters
         """
-        # prepare data 
         plot_data = []
         for param in selected_params:
             data = self.successful_results[param].dropna()
@@ -930,7 +952,7 @@ class ATESVisualizer:
             for value in data:
                 plot_data.append({
                     'Parameter': group_params.get(param, param),
-                    'Value': safe_float(value),  # Safe conversion
+                    'Value': safe_float(value),
                     'param_key': param
                 })
         
@@ -953,11 +975,31 @@ class ATESVisualizer:
                 'text': f"{group_name} - Box Plot Analysis",
                 'x': 0.5,
                 'xanchor': 'center',
-                'yanchor': 'top'
+                'yanchor': 'top',
+                'font': dict(color='black')
             },
             height=500,
             showlegend=False,
-            xaxis={'tickangle': 45}
+            font=dict(color='black'),
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            xaxis=dict(
+                tickangle=45,
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True
+            ),
+            yaxis=dict(
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True
+            )
         )
         
         st.plotly_chart(fig, width="stretch")
@@ -966,7 +1008,6 @@ class ATESVisualizer:
         """
         Plot violin plots for selected parameters
         """
-        # Prepare data for violin plots
         plot_data = []
         for param in selected_params:
             data = self.successful_results[param].dropna()
@@ -974,7 +1015,7 @@ class ATESVisualizer:
             for value in data:
                 plot_data.append({
                     'Parameter': group_params.get(param, param),
-                    'Value': safe_float(value)  # Safe conversion
+                    'Value': safe_float(value)
                 })
         
         if not plot_data:
@@ -997,11 +1038,31 @@ class ATESVisualizer:
                 'text': f"{group_name} - Violin Plot Analysis",
                 'x': 0.5,
                 'xanchor': 'center',
-                'yanchor': 'top'
+                'yanchor': 'top',
+                'font': dict(color='black')
             },
             height=500,
             showlegend=False,
-            xaxis={'tickangle': 45}
+            font=dict(color='black'),
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            xaxis=dict(
+                tickangle=45,
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True
+            ),
+            yaxis=dict(
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True
+            )
         )
         
         st.plotly_chart(fig, width="stretch")
@@ -1014,7 +1075,6 @@ class ATESVisualizer:
             if len(data) == 0:
                 continue
             
-            # Create subplots
             fig = make_subplots(
                 rows=1, cols=3,
                 subplot_titles=["Distribution", "Box Plot", "Q-Q Plot"],
@@ -1022,7 +1082,6 @@ class ATESVisualizer:
                 column_widths=[0.33, 0.33, 0.34]
             )
 
-            # Histogram
             fig.add_trace(
                 go.Histogram(
                     x=data, 
@@ -1030,27 +1089,23 @@ class ATESVisualizer:
                     name="Frequency",
                     marker=dict(
                         color=self.group_colors[group_name],
-                        line=dict(
-                            color='rgba(0,0,0,0.9)',  
-                            width=1        
-                        )
+                        line=dict(color='black', width=1)
                     ),
                     opacity=0.85
                 ),
                 row=1, col=1
             )
 
-            # Box plot
             fig.add_trace(
                 go.Box(
                     y=data, 
                     name="Distribution",
-                    marker_color=self.group_colors[group_name]
+                    marker_color=self.group_colors[group_name],
+                    line=dict(color='black')
                 ),
                 row=1, col=2
             )
 
-            # Q-Q plot
             sorted_data = np.sort(data)
             theoretical_quantiles = stats.norm.ppf(np.linspace(0.01, 0.99, len(sorted_data)))
 
@@ -1065,7 +1120,6 @@ class ATESVisualizer:
                 row=1, col=3
             )
 
-            # Add reference line for Q-Q plot
             min_val = safe_float(np.min(theoretical_quantiles))
             max_val = safe_float(np.max(theoretical_quantiles))
             q01_val = safe_float(data.quantile(0.01))
@@ -1077,31 +1131,50 @@ class ATESVisualizer:
                     y=[q01_val, q99_val],
                     mode='lines',
                     name="Reference",
-                    line=dict(dash='dash', color='red')
+                    line=dict(dash='dash', color='black')
                 ),
                 row=1, col=3
             )
-            
-            
             
             fig.update_layout(
                 title={
                     'text': f"{group_params.get(param, param)} - Comprehensive Analysis",
                     'x': 0.5,
                     'xanchor': 'center',
-                    'yanchor': 'top'
+                    'yanchor': 'top',
+                    'font': dict(color='black')
                 },
                 height=500,  
                 showlegend=False,
-                bargap=0.1
+                bargap=0.1,
+                font=dict(color='black'),
+                plot_bgcolor='white',
+                paper_bgcolor='white'
             )
 
-            # 更新坐标轴标签
+            fig.update_xaxes(
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True
+            )
+            fig.update_yaxes(
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True
+            )
+
             fig.update_xaxes(title_text="Value", row=1, col=1)
             fig.update_yaxes(title_text="Frequency", row=1, col=1)
             fig.update_yaxes(title_text="Value", row=1, col=2)
             fig.update_xaxes(title_text="Theoretical Quantiles", row=1, col=3)
             fig.update_yaxes(title_text="Sample Quantiles", row=1, col=3)
+            fig.update_annotations(font=dict(color='black'))
             
             data_min = safe_float(data.min())
             data_max = safe_float(data.max())
@@ -1143,82 +1216,82 @@ class ATESVisualizer:
             
             st.dataframe(stats_df, width="stretch", hide_index=True)
 
-    def _render_risk_analysis(self, available_params: List[str], group_params: Dict[str, str], group_name: str):
-        """Render risk analysis with performance thresholds"""
-        st.markdown("### Risk Analysis")
+    # def _render_risk_analysis(self, available_params: List[str], group_params: Dict[str, str], group_name: str):
+    #     """Render risk analysis with performance thresholds"""
+    #     st.markdown("### Risk Analysis")
         
-        # Define performance thresholds based on parameter type
-        thresholds = {
-            'heating_system_cop': {'excellent': 4.0, 'good': 3.0, 'acceptable': 2.0},
-            'cooling_system_cop': {'excellent': 5.0, 'good': 3.5, 'acceptable': 2.5},
-            'energy_balance_ratio': {'excellent': 0.05, 'good': 0.1, 'acceptable': 0.2},
-            'heating_annual_energy_building_GWhth': {'excellent': 8.0, 'good': 4.0, 'acceptable': 2.0},
-            'cooling_annual_energy_building_GWhth': {'excellent': 5.0, 'good': 2.5, 'acceptable': 1.0}
-        }
+    #     # Define performance thresholds based on parameter type
+    #     thresholds = {
+    #         'heating_system_cop': {'excellent': 4.0, 'good': 3.0, 'acceptable': 2.0},
+    #         'cooling_system_cop': {'excellent': 5.0, 'good': 3.5, 'acceptable': 2.5},
+    #         'energy_balance_ratio': {'excellent': 0.05, 'good': 0.1, 'acceptable': 0.2},
+    #         'heating_annual_energy_building_GWhth': {'excellent': 8.0, 'good': 4.0, 'acceptable': 2.0},
+    #         'cooling_annual_energy_building_GWhth': {'excellent': 5.0, 'good': 2.5, 'acceptable': 1.0}
+    #     }
         
-        risk_data = []
-        for param in available_params:
-            if param in thresholds:
-                data = self.successful_results[param].dropna()
-                data = data[np.isfinite(data)]
-                if len(data) > 0:
-                    threshold = thresholds[param]
+    #     risk_data = []
+    #     for param in available_params:
+    #         if param in thresholds:
+    #             data = self.successful_results[param].dropna()
+    #             data = data[np.isfinite(data)]
+    #             if len(data) > 0:
+    #                 threshold = thresholds[param]
                     
-                    if param == 'energy_balance_ratio':
-                        abs_data = data.abs()
-                        excellent = safe_float((abs_data <= threshold['excellent']).mean()) * 100
-                        good = safe_float((abs_data <= threshold['good']).mean()) * 100
-                        acceptable = safe_float((abs_data <= threshold['acceptable']).mean()) * 100
-                    else:
-                        # For most parameters, higher is better
-                        excellent = safe_float((data >= threshold['excellent']).mean()) * 100
-                        good = safe_float((data >= threshold['good']).mean()) * 100
-                        acceptable = safe_float((data >= threshold['acceptable']).mean()) * 100
+    #                 if param == 'energy_balance_ratio':
+    #                     abs_data = data.abs()
+    #                     excellent = safe_float((abs_data <= threshold['excellent']).mean()) * 100
+    #                     good = safe_float((abs_data <= threshold['good']).mean()) * 100
+    #                     acceptable = safe_float((abs_data <= threshold['acceptable']).mean()) * 100
+    #                 else:
+    #                     # For most parameters, higher is better
+    #                     excellent = safe_float((data >= threshold['excellent']).mean()) * 100
+    #                     good = safe_float((data >= threshold['good']).mean()) * 100
+    #                     acceptable = safe_float((data >= threshold['acceptable']).mean()) * 100
                     
-                    risk_data.append({
-                        'Parameter': group_params.get(param, param),
-                        'Excellent (%)': excellent,
-                        'Good (%)': good,
-                        'Acceptable (%)': acceptable,
-                        'Poor (%)': 100 - acceptable
-                    })
+    #                 risk_data.append({
+    #                     'Parameter': group_params.get(param, param),
+    #                     'Excellent (%)': excellent,
+    #                     'Good (%)': good,
+    #                     'Acceptable (%)': acceptable,
+    #                     'Poor (%)': 100 - acceptable
+    #                 })
         
-        if risk_data:
-            risk_df = pd.DataFrame(risk_data)
+    #     if risk_data:
+    #         risk_df = pd.DataFrame(risk_data)
             
-            # Display risk table
-            st.dataframe(risk_df.round(1), width="stretch", hide_index=True)
+    #         # Display risk table
+    #         st.dataframe(risk_df.round(1), width="stretch", hide_index=True)
             
-            # Risk visualization
-            fig = go.Figure()
+    #         # Risk visualization
+    #         fig = go.Figure()
             
-            categories = ['Excellent', 'Good', 'Acceptable', 'Poor']
-            colors = ['#2ECC71', '#3498DB', '#F39C12', '#E74C3C']
+    #         categories = ['Excellent', 'Good', 'Acceptable', 'Poor']
+    #         colors = ['#2ECC71', '#3498DB', '#F39C12', '#E74C3C']
             
-            for i, category in enumerate(categories):
-                col_name = f"{category} (%)"
-                if col_name in risk_df.columns:
-                    fig.add_trace(go.Bar(
-                        x=risk_df['Parameter'],
-                        y=risk_df[col_name],
-                        name=category,
-                        marker_color=colors[i]
-                    ))
+    #         for i, category in enumerate(categories):
+    #             col_name = f"{category} (%)"
+    #             if col_name in risk_df.columns:
+    #                 fig.add_trace(go.Bar(
+    #                     x=risk_df['Parameter'],
+    #                     y=risk_df[col_name],
+    #                     name=category,
+    #                     marker_color=colors[i]
+    #                 ))
             
-            fig.update_layout(
-                title="Performance Risk Analysis",
-                title_x=0.5,
-                barmode='stack',
-                height=500,
-                xaxis_title="Parameters",
-                yaxis_title="Probability (%)",
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                xaxis={'tickangle': 45}
-            )
+    #         fig.update_layout(
+    #             title="Performance Risk Analysis",
+    #             title_x=0.5,
+    #             barmode='stack',
+    #             height=500,
+    #             xaxis_title="Parameters",
+    #             yaxis_title="Probability (%)",
+    #             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    #             xaxis={'tickangle': 45}
+    #         )
             
-            st.plotly_chart(fig, width="stretch")
-        else:
-            st.info("Risk analysis not available for selected parameters")
+    #         st.plotly_chart(fig, width="stretch")
+    #     else:
+    #         st.info("Risk analysis not available for selected parameters")
 
     def _render_detailed_percentiles(self, available_params: List[str], group_params: Dict[str, str], group_name: str):
         """
@@ -1352,12 +1425,35 @@ class ATESVisualizer:
             ))
         
         fig.update_layout(
-            title=f"{group_name} - Percentile Analysis",
-            title_x=0.5,
+            title={
+                'text': f"{group_name} - Percentile Analysis",
+                'x': 0.5,
+                'font': dict(color='black')
+            },
             xaxis_title="Percentile",
             yaxis_title="Value",
             height=500,
-            hovermode='x unified'
+            hovermode='x unified',
+            font=dict(color='black'),
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            legend=dict(font=dict(color='black')),
+            xaxis=dict(
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True
+            ),
+            yaxis=dict(
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True
+            )
         )
         
         st.plotly_chart(fig, width="stretch")
@@ -1374,17 +1470,15 @@ class ATESVisualizer:
             lower_ci = safe_float(row[f'CI Lower ({confidence_level}%)'])
             upper_ci = safe_float(row[f'CI Upper ({confidence_level}%)'])
             
-            # Add confidence interval
             fig.add_trace(go.Scatter(
                 x=[param_name, param_name],
                 y=[lower_ci, upper_ci],
                 mode='lines',
-                line=dict(width=8, color='lightgray'),
+                line=dict(width=8, color='black'),
                 showlegend=False,
                 hoverinfo='skip'
             ))
             
-            # Add mean point
             fig.add_trace(go.Scatter(
                 x=[param_name],
                 y=[mean_val],
@@ -1398,12 +1492,32 @@ class ATESVisualizer:
             title={
                 'text': f"{group_name} - {confidence_level}% Confidence Intervals",
                 'x': 0.5,
-                'xanchor': 'center'
+                'xanchor': 'center',
+                'font': dict(color='black')
             },
             height=500,
             xaxis_title="Parameters",
             yaxis_title="Value",
-            xaxis={'tickangle': 45}
+            font=dict(color='black'),
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            xaxis=dict(
+                tickangle=45,
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True
+            ),
+            yaxis=dict(
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True
+            )
         )
         
         st.plotly_chart(fig, width="stretch")
@@ -1439,16 +1553,26 @@ class ATESVisualizer:
                                  correlation_type: str, n_top_params: int):
         """
         Plot sensitivity analysis bar chart
+        Axis uses selected correlation type, color uses the other type
         """
         # Get top N parameters
         top_params = sensitivity_df.head(n_top_params).copy()
         
-        # select correlation column
+        # Select correlation columns - axis uses selected type, color uses the other
         corr_col = f"{correlation_type}_Correlation"
         abs_corr_col = f"Abs_{correlation_type}"
         
+        # Color uses the other correlation type
+        other_type = "Pearson" if correlation_type == "Spearman" else "Spearman"
+        color_corr_col = f"{other_type}_Correlation"
+        abs_color_col = f"Abs_{other_type}"
+        
         if corr_col not in top_params.columns:
             st.error(f"{correlation_type} correlation data not available")
+            return
+        
+        if color_corr_col not in top_params.columns:
+            st.error(f"{other_type} correlation data not available")
             return
         
         # format parameter names
@@ -1463,7 +1587,7 @@ class ATESVisualizer:
                 'Formatted_Name': 'Input Parameters',
                 abs_corr_col: f'Absolute {correlation_type} Correlation'
             },
-            color=abs_corr_col,
+            color=abs_color_col,
             color_continuous_scale='Viridis'
         )
         
@@ -1472,79 +1596,148 @@ class ATESVisualizer:
                 'text': f"Top {n_top_params} Most Influential Parameters - {self._format_parameter_name(selected_output)}",
                 'x': 0.5,
                 'xanchor': 'center',
-                'yanchor': 'top'
+                'yanchor': 'top',
+                'font': dict(color='black')
             },
             height=500,
             showlegend=False,
-            xaxis={'tickangle': 45}
+            font=dict(color='black'),
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            xaxis=dict(
+                tickangle=45,
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True
+            ),
+            yaxis=dict(
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True,
+                range=[0, top_params[abs_corr_col].max() * 1.15]
+            ),
+            coloraxis_colorbar=dict(
+                title=f"Abs {other_type}",
+                tickfont=dict(color='black'),
+                title_font=dict(color='black')
+            )
         )
         
         # Add correlation values as text on bars
         fig.update_traces(
-            text=top_params[corr_col].round(3),
-            textposition='outside'
+            text=top_params[abs_corr_col].round(3),
+            textposition='outside',
+            textfont=dict(color='black')
         )
         
         st.plotly_chart(fig, width="stretch")
 
     def _plot_tornado_chart(self, sensitivity_df: pd.DataFrame, selected_output: str, 
                          correlation_type: str, n_top_params: int):
-        """Plot tornado chart for sensitivity analysis"""
-        # Get top N parameters
+        """
+        Plot tornado chart for sensitivity analysis
+        """
         top_params = sensitivity_df.head(n_top_params).copy()
         
         corr_col = f"{correlation_type}_Correlation"
+        abs_corr_col = f"Abs_{correlation_type}"
+        
+        # Other correlation type for color
+        other_type = "Pearson" if correlation_type == "Spearman" else "Spearman"
+        other_corr_col = f"{other_type}_Correlation"
         
         if corr_col not in top_params.columns:
             st.error(f"{correlation_type} correlation data not available")
             return
         
-        # Format parameter names and sort by absolute correlation
         top_params['Formatted_Name'] = top_params['Input_Parameter'].apply(self._format_parameter_name)
-        top_params = top_params.sort_values(f"Abs_{correlation_type}", ascending=True)
+        top_params = top_params.sort_values(abs_corr_col, ascending=True)
         
-        # Create tornado chart
         fig = go.Figure()
         
-        # positive correlations
-        positive_mask = top_params[corr_col] >= 0
-        if positive_mask.any():
-            fig.add_trace(go.Bar(
-                x=top_params[positive_mask][corr_col],
-                y=top_params[positive_mask]['Formatted_Name'],
-                orientation='h',
-                name='Positive Correlation',
-                marker_color='green',
-                opacity=0.7
-            ))
+        fig.add_trace(go.Bar(
+            x=top_params[corr_col],
+            y=top_params['Formatted_Name'],
+            orientation='h',
+            marker=dict(
+                color=top_params[other_corr_col],
+                colorscale=[[0, '#B22222'], [0.5, '#FFD700'], [1, '#006400']],
+                cmid=0,
+                showscale=True,
+                colorbar=dict(
+                    title=f"{other_type}",
+                    tickfont=dict(color='black'),
+                    title_font=dict(color='black'),
+                    thickness=20
+                )
+            ),
+            customdata=top_params[[other_corr_col]].values,
+            hovertemplate=(
+                '<b>%{y}</b><br>' +
+                f'{correlation_type}: %{{x:.4f}}<br>' +
+                f'{other_type}: %{{customdata[0]:.4f}}<extra></extra>'
+            )
+        ))
         
-        # negative correlations
-        negative_mask = top_params[corr_col] < 0
-        if negative_mask.any():
-            fig.add_trace(go.Bar(
-                x=top_params[negative_mask][corr_col],
-                y=top_params[negative_mask]['Formatted_Name'],
-                orientation='h',
-                name='Negative Correlation',
-                marker_color='red',
-                opacity=0.7
-            ))
+        # X axis range: positive and negative sides calculated separately
+        x_min = top_params[corr_col].min()
+        x_max = top_params[corr_col].max()
+        
+        # Negative side
+        if x_min < 0:
+            neg_range = min(x_min * 1.15, -0.1)
+        else:
+            neg_range = -0.05
+        
+        # Positive side
+        if x_max > 0:
+            pos_range = x_max * 1.15
+        else:
+            pos_range = 0.05
+        
+        x_range = [neg_range, pos_range]
         
         fig.update_layout(
             title={
                 'text': f"Tornado Chart - {self._format_parameter_name(selected_output)}",
                 'x': 0.5,
                 'xanchor': 'center',
-                'yanchor': 'top'
+                'yanchor': 'top',
+                'font': dict(color='black')
             },
             height=max(400, n_top_params * 30),
             xaxis_title=f"{correlation_type} Correlation",
             yaxis_title="Input Parameters",
-            barmode='relative'
+            barmode='relative',
+            font=dict(color='black'),
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            xaxis=dict(
+                range=x_range,
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True
+            ),
+            yaxis=dict(
+                linecolor='black',
+                tickcolor='black',
+                tickfont=dict(color='black'),
+                title_font=dict(color='black'),
+                showgrid=False,
+                showline=True
+            )
         )
         
-        # Add vertical line at x=0
-        fig.add_vline(x=0, line_dash="dash", line_color="black", opacity=0.5)
+        fig.add_vline(x=0, line_dash="dash", line_color="black", opacity=0.8)
         
         st.plotly_chart(fig, width="stretch")
 
@@ -1702,89 +1895,89 @@ class ATESVisualizer:
         """
         name_mapping = {
             # Input parameters 
-            'aquifer_temp': 'Aquifer Temperature',
-            'water_density': 'Water Density',
-            'water_specific_heat_capacity': 'Water Specific Heat Capacity',  
-            'thermal_recovery_factor': 'Thermal Recovery Factor',
-            'heating_target_avg_flowrate_pd': 'Heating Target Average Flow Rate per Doublet', 
-            'tolerance_in_energy_balance': 'Energy Balance Tolerance',  
+            'aquifer_temp': 'Aquifer Temperature (°C)',
+            'water_density': 'Water Density (kg/m³)',
+            'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',  
+            'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+            'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)', 
+            'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',  
             'heating_number_of_doublets': 'Number of Doublets',  
             'heating_days': 'Heating Days',
             'cooling_days': 'Cooling Days',
-            'pump_energy_density': 'Pump Energy Density',
-            'heating_ave_injection_temp': 'Heating Average Injection Temperature',
-            'heating_temp_to_building': 'Heating Temperature to Building', 
+            'pump_energy_density': 'Pump Energy Density (kWh/m³)',
+            'heating_ave_injection_temp': 'Cool Well Injection Temperature (°C)',
+            'heating_temp_to_building': 'Building Heating Temperature (°C)', 
             'cop_param_a': 'COP Parameter A',
             'cop_param_b': 'COP Parameter B',
             'cop_param_c': 'COP Parameter C',
             'cop_param_d': 'COP Parameter D',
-            'carbon_intensity': 'Carbon Intensity',
-            'cooling_ave_injection_temp': 'Cooling Average Injection Temperature',
-            'cooling_temp_to_building': 'Cooling Temperature to Building',
+            'carbon_intensity': 'Carbon Intensity (kgCO₂/kWh)',
+            'cooling_ave_injection_temp': 'Warm Well Injection Temperature (°C)',
+            'cooling_temp_to_building': 'Building Cooling Temperature (°C)',
             
             # Output parameters - Heating
-            'heating_system_cop': 'Heating System COP',
-            'heating_annual_energy_building_GWhth': 'Heating Annual Energy to Building (GWhth)',
-            'heating_annual_elec_energy_GWhe': 'Heating Annual Electrical Energy (GWhe)',
-            'heating_co2_emissions_per_thermal': 'Heating CO₂ Emissions per Thermal',
-            'heating_ave_power_to_building_MW': 'Heating Average Power to Building (MW)',
+            'heating_system_cop': 'System COP',
+            'heating_annual_energy_building_GWhth': 'Annual Energy to Building (GWhth)',
+            'heating_annual_elec_energy_GWhe': 'Annual Electricity (GWhe)',
+            'heating_co2_emissions_per_thermal': 'CO₂ Emissions per Thermal',
+            'heating_ave_power_to_building_MW': 'Average Power to Building (MW)',
             'heating_ave_production_temp': 'Heating Average Production Temperature',
-            'heating_total_energy_stored': 'Heating Total Energy Stored',
-            'heating_stored_energy_recovered': 'Heating Stored Energy Recovered',
-            'heating_annual_energy_aquifer_J': 'Heating Annual Energy from Aquifer (J)',
-            'heating_annual_energy_aquifer_kWhth': 'Heating Annual Energy from Aquifer (kWhth)',
-            'heating_annual_energy_aquifer_GWhth': 'Heating Annual Energy from Aquifer (GWhth)',
-            'heating_annual_energy_building_J': 'Heating Annual Energy to Building (J)',
-            'heating_annual_energy_building_kWhth': 'Heating Annual Energy to Building (kWhth)',
-            'heating_elec_energy_per_thermal': 'Heating Electrical Energy per Thermal',
-            'heating_total_flow_rate_m3hr': 'Heating Total Flow Rate (m³/hr)',
-            'heating_total_flow_rate_ls': 'Heating Total Flow Rate (l/s)',
-            'heating_total_flow_rate_m3s': 'Heating Total Flow Rate (m³/s)',
-            'heating_ave_temp_change_across_HX': 'Heating Average Temperature Change Across HX',
-            'heating_temp_change_induced_HP': 'Heating Temperature Change Induced by HP',
-            'heating_heat_pump_COP': 'Heating Heat Pump COP',
-            'heating_ehp': 'Heating Heat Pump Factor (ehp)',
-            'heating_ave_power_to_HX_W': 'Heating Average Power to HX (W)',
-            'heating_ave_power_to_HX_MW': 'Heating Average Power to HX (MW)',
-            'heating_ave_power_to_building_W': 'Heating Average Power to Building (W)',
-            'heating_monthly_to_HX': 'Heating Monthly Energy to HX',
-            'heating_monthly_to_building': 'Heating Monthly Energy to Building',
-            'heating_elec_energy_hydraulic_pumps': 'Heating Electrical Energy to Hydraulic Pumps',
-            'heating_elec_energy_HP': 'Heating Electrical Energy to Heat Pump',
-            'heating_annual_elec_energy_J': 'Heating Annual Electrical Energy (J)',
-            'heating_annual_elec_energy_MWhe': 'Heating Annual Electrical Energy (MWhe)',
+            'heating_total_energy_stored': 'Total Energy Stored',
+            'heating_stored_energy_recovered': 'Stored Energy Recovered',
+            'heating_annual_energy_aquifer_J': 'Annual Energy from Aquifer (J)',
+            'heating_annual_energy_aquifer_kWhth': 'Annual Energy from Aquifer (kWhth)',
+            'heating_annual_energy_aquifer_GWhth': 'Annual Energy from Aquifer (GWhth)',
+            'heating_annual_energy_building_J': 'Annual Energy to Building (J)',
+            'heating_annual_energy_building_kWhth': 'Annual Energy to Building (kWhth)',
+            'heating_elec_energy_per_thermal': 'Electrical Energy per Thermal',
+            'heating_total_flow_rate_m3hr': 'Total Flow Rate (m³/hr)',
+            'heating_total_flow_rate_ls': 'Total Flow Rate (l/s)',
+            'heating_total_flow_rate_m3s': 'Total Flow Rate (m³/s)',
+            'heating_ave_temp_change_across_HX': 'Average Temperature Change Across HX',
+            'heating_temp_change_induced_HP': 'Temperature Change Induced by HP',
+            'heating_heat_pump_COP': 'Heat Pump COP',
+            'heating_ehp': 'Heat Pump Factor (ehp)',
+            'heating_ave_power_to_HX_W': 'Average Power to HX (W)',
+            'heating_ave_power_to_HX_MW': 'Average Power to HX (MW)',
+            'heating_ave_power_to_building_W': 'Average Power to Building (W)',
+            'heating_monthly_to_HX': 'Monthly Energy to HX (GWhth)',
+            'heating_monthly_to_building': 'Average Monthly to Building (GWhth)',
+            'heating_elec_energy_hydraulic_pumps': 'Electrical Energy to Hydraulic Pumps',
+            'heating_elec_energy_HP': 'Electrical Energy to Heat Pump',
+            'heating_annual_elec_energy_J': 'Annual Electrical Energy (J)',
+            'heating_annual_elec_energy_MWhe': 'Annual Electrical Energy (MWhe)',
             
             # Output parameters - Cooling
-            'cooling_system_cop': 'Cooling System COP',
-            'cooling_annual_energy_building_GWhth': 'Cooling Annual Energy to Building (GWhth)',
-            'cooling_annual_elec_energy_GWhe': 'Cooling Annual Electrical Energy (GWhe)',
-            'cooling_co2_emissions_per_thermal': 'Cooling CO₂ Emissions per Thermal',
-            'cooling_ave_power_to_building_MW': 'Cooling Average Power to Building (MW)',
+            'cooling_system_cop': 'System COP',
+            'cooling_annual_energy_building_GWhth': 'Annual Energy to Building (GWhth)',
+            'cooling_annual_elec_energy_GWhe': 'Annual Electricity (GWhe)',
+            'cooling_co2_emissions_per_thermal': 'CO₂ Emissions per Thermal',
+            'cooling_ave_power_to_building_MW': 'Average Power to Building (MW)',
             'cooling_ave_production_temp': 'Cooling Average Production Temperature',
-            'cooling_total_energy_stored': 'Cooling Total Energy Stored',
-            'cooling_stored_energy_recovered': 'Cooling Stored Energy Recovered',
-            'cooling_annual_energy_aquifer_J': 'Cooling Annual Energy from Aquifer (J)',
-            'cooling_annual_energy_aquifer_kWhth': 'Cooling Annual Energy from Aquifer (kWhth)',
-            'cooling_annual_energy_aquifer_GWhth': 'Cooling Annual Energy from Aquifer (GWhth)',
-            'cooling_annual_energy_building_J': 'Cooling Annual Energy to Building (J)',
-            'cooling_annual_energy_building_kWhth': 'Cooling Annual Energy to Building (kWhth)',
-            'cooling_elec_energy_per_thermal': 'Cooling Electrical Energy per Thermal',
-            'cooling_total_flow_rate_m3hr': 'Cooling Total Flow Rate (m³/hr)',
-            'cooling_total_flow_rate_ls': 'Cooling Total Flow Rate (l/s)',
-            'cooling_total_flow_rate_m3s': 'Cooling Total Flow Rate (m³/s)',
-            'cooling_ave_temp_change_across_HX': 'Cooling Average Temperature Change Across HX',
-            'cooling_temp_change_induced_HP': 'Cooling Temperature Change Induced by HP',
-            'cooling_heat_pump_COP': 'Cooling Heat Pump COP',
-            'cooling_ehp': 'Cooling Heat Pump Factor (ehp)',
-            'cooling_ave_power_to_HX_W': 'Cooling Average Power to HX (W)',
-            'cooling_ave_power_to_HX_MW': 'Cooling Average Power to HX (MW)',
-            'cooling_ave_power_to_building_W': 'Cooling Average Power to Building (W)',
-            'cooling_monthly_to_HX': 'Cooling Monthly Energy to HX',
-            'cooling_monthly_to_building': 'Cooling Monthly Energy to Building',
-            'cooling_elec_energy_hydraulic_pumps': 'Cooling Electrical Energy to Hydraulic Pumps',
-            'cooling_elec_energy_HP': 'Cooling Electrical Energy to Heat Pump',
-            'cooling_annual_elec_energy_J': 'Cooling Annual Electrical Energy (J)',
-            'cooling_annual_elec_energy_MWhe': 'Cooling Annual Electrical Energy (MWhe)',
+            'cooling_total_energy_stored': 'Total Energy Stored',
+            'cooling_stored_energy_recovered': 'Stored Energy Recovered',
+            'cooling_annual_energy_aquifer_J': 'Annual Energy from Aquifer (J)',
+            'cooling_annual_energy_aquifer_kWhth': 'Annual Energy from Aquifer (kWhth)',
+            'cooling_annual_energy_aquifer_GWhth': 'Annual Energy from Aquifer (GWhth)',
+            'cooling_annual_energy_building_J': 'Annual Energy to Building (J)',
+            'cooling_annual_energy_building_kWhth': 'Annual Energy to Building (kWhth)',
+            'cooling_elec_energy_per_thermal': 'Electrical Energy per Thermal',
+            'cooling_total_flow_rate_m3hr': 'Total Flow Rate (m³/hr)',
+            'cooling_total_flow_rate_ls': 'Total Flow Rate (l/s)',
+            'cooling_total_flow_rate_m3s': 'Total Flow Rate (m³/s)',
+            'cooling_ave_temp_change_across_HX': 'Average Temperature Change Across HX',
+            'cooling_temp_change_induced_HP': 'Temperature Change Induced by HP',
+            'cooling_heat_pump_COP': 'Heat Pump COP',
+            'cooling_ehp': 'Heat Pump Factor (ehp)',
+            'cooling_ave_power_to_HX_W': 'Average Power to HX (W)',
+            'cooling_ave_power_to_HX_MW': 'Average Power to HX (MW)',
+            'cooling_ave_power_to_building_W': 'Average Power to Building (W)',
+            'cooling_monthly_to_HX': 'Monthly Energy to HX (GWhth)',
+            'cooling_monthly_to_building': 'Average Monthly to Building (GWhth)',
+            'cooling_elec_energy_hydraulic_pumps': 'Electrical Energy to Hydraulic Pumps',
+            'cooling_elec_energy_HP': 'Electrical Energy to Heat Pump',
+            'cooling_annual_elec_energy_J': 'Annual Electrical Energy (J)',
+            'cooling_annual_elec_energy_MWhe': 'Annual Electrical Energy (MWhe)',
             
             # System parameters
             'energy_balance_ratio': 'Energy Balance Ratio (EBR)',
@@ -2055,58 +2248,58 @@ class ATESResultsExporter:
     
  
 # Utility functions for Streamlit integration
-def create_results_dashboard():
-    """Create a comprehensive results dashboard"""
-    if st.session_state.get('monte_carlo_results') is None:
-        st.error("No Monte Carlo results available")
-        st.info("Please run Monte Carlo analysis in the **Probabilistic Setup** screen first")
-        return
+# def create_results_dashboard():
+#     """Create a comprehensive results dashboard"""
+#     if st.session_state.get('monte_carlo_results') is None:
+#         st.error("No Monte Carlo results available")
+#         st.info("Please run Monte Carlo analysis in the **Probabilistic Setup** screen first")
+#         return
     
-    visualizer = ATESVisualizer(
-        st.session_state.monte_carlo_results, 
-        st.session_state.get('sensitivity_results')
-    )
+#     visualizer = ATESVisualizer(
+#         st.session_state.monte_carlo_results, 
+#         st.session_state.get('sensitivity_results')
+#     )
     
-    # dashboard header
-    st.title("ATES Assessment Results Dashboard")
+#     # dashboard header
+#     st.title("ATES Assessment Results Dashboard")
     
-    # quick summary metrics
-    total_runs = len(st.session_state.monte_carlo_results)
-    successful_runs = len(visualizer.successful_results)
-    success_rate = (successful_runs / total_runs) * 100 if total_runs > 0 else 0
+#     # quick summary metrics
+#     total_runs = len(st.session_state.monte_carlo_results)
+#     successful_runs = len(visualizer.successful_results)
+#     success_rate = (successful_runs / total_runs) * 100 if total_runs > 0 else 0
     
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Iterations", f"{total_runs:,}")
-    with col2:
-        st.metric("Successful", f"{successful_runs:,}")
-    with col3:
-        st.metric("Success Rate", f"{success_rate:.1f}%")
-    with col4:
-        has_sensitivity = st.session_state.get('sensitivity_results') is not None
-        st.metric("Sensitivity Analysis", "Available" if has_sensitivity else "Not Available")
+#     col1, col2, col3, col4 = st.columns(4)
+#     with col1:
+#         st.metric("Total Iterations", f"{total_runs:,}")
+#     with col2:
+#         st.metric("Successful", f"{successful_runs:,}")
+#     with col3:
+#         st.metric("Success Rate", f"{success_rate:.1f}%")
+#     with col4:
+#         has_sensitivity = st.session_state.get('sensitivity_results') is not None
+#         st.metric("Sensitivity Analysis", "Available" if has_sensitivity else "Not Available")
     
-    # Create tabs for different analyses
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "Distributions", 
-        "Percentiles & Risk", 
-        "Sensitivity Analysis", 
-        "Summary Report"
-    ])
+#     # Create tabs for different analyses
+#     tab1, tab2, tab3, tab4 = st.tabs([
+#         "Distributions", 
+#         "Percentiles & Risk", 
+#         "Sensitivity Analysis", 
+#         "Summary Report"
+#     ])
     
-    with tab1:
-        visualizer.render_distribution_plots()
-        st.markdown("---")
-        visualizer.render_correlation_matrix()
+#     with tab1:
+#         visualizer.render_distribution_plots()
+#         st.markdown("---")
+#         visualizer.render_correlation_matrix()
     
-    with tab2:
-        visualizer.render_percentile_analysis()
+#     with tab2:
+#         visualizer.render_percentile_analysis()
     
-    with tab3:
-        visualizer.render_sensitivity_analysis()
+#     with tab3:
+#         visualizer.render_sensitivity_analysis()
     
-    with tab4:
-        render_summary_report_tab()
+#     with tab4:
+#         render_summary_report_tab()
 
 
 def render_summary_report_tab():
@@ -2303,97 +2496,131 @@ def render_summary_report_tab():
 
 
 # Additional utility functions
-def format_monte_carlo_summary(results_df: pd.DataFrame) -> str:
-    """
-    Format a summary of Monte Carlo results for display
-    """
-    if results_df is None or len(results_df) == 0:
-        return "No results available"
+# def format_monte_carlo_summary(results_df: pd.DataFrame) -> str:
+#     """
+#     Format a summary of Monte Carlo results for display
+#     """
+#     if results_df is None or len(results_df) == 0:
+#         return "No results available"
     
-    successful = int(results_df['success'].sum()) if 'success' in results_df.columns else len(results_df)
-    total = len(results_df)
-    success_rate = successful / total * 100
+#     successful = int(results_df['success'].sum()) if 'success' in results_df.columns else len(results_df)
+#     total = len(results_df)
+#     success_rate = successful / total * 100
     
-    summary = f"""**Monte Carlo Simulation Summary**
-- Total iterations: {total:,}
-- Successful calculations: {successful:,} ({success_rate:.1f}%)
-- Failed calculations: {total - successful:,}"""
+#     summary = f"""**Monte Carlo Simulation Summary**
+# - Total iterations: {total:,}
+# - Successful calculations: {successful:,} ({success_rate:.1f}%)
+# - Failed calculations: {total - successful:,}"""
     
-    if successful > 0:
-        successful_df = results_df[results_df['success']] if 'success' in results_df.columns else results_df
+#     if successful > 0:
+#         successful_df = results_df[results_df['success']] if 'success' in results_df.columns else results_df
         
-        # Safe access to columns
-        heating_cop_mean = safe_float(successful_df['heating_system_cop'].mean()) if 'heating_system_cop' in successful_df.columns else 0
-        cooling_cop_mean = safe_float(successful_df['cooling_system_cop'].mean()) if 'cooling_system_cop' in successful_df.columns else 0
+#         # Safe access to columns
+#         heating_cop_mean = safe_float(successful_df['heating_system_cop'].mean()) if 'heating_system_cop' in successful_df.columns else 0
+#         cooling_cop_mean = safe_float(successful_df['cooling_system_cop'].mean()) if 'cooling_system_cop' in successful_df.columns else 0
         
-        # Handle infinite values (direct cooling mode)
-        if 'cooling_system_cop' in successful_df.columns:
-            cooling_finite = successful_df['cooling_system_cop'][successful_df['cooling_system_cop'] != float('inf')]
-            if len(cooling_finite) > 0:
-                cooling_cop_display = f"{safe_float(cooling_finite.mean()):.2f} (finite values)"
-            else:
-                cooling_cop_display = "Direct cooling mode"
-        else:
-            cooling_cop_display = "N/A"
+#         # Handle infinite values (direct cooling mode)
+#         if 'cooling_system_cop' in successful_df.columns:
+#             cooling_finite = successful_df['cooling_system_cop'][successful_df['cooling_system_cop'] != float('inf')]
+#             if len(cooling_finite) > 0:
+#                 cooling_cop_display = f"{safe_float(cooling_finite.mean()):.2f} (finite values)"
+#             else:
+#                 cooling_cop_display = "Direct cooling mode"
+#         else:
+#             cooling_cop_display = "N/A"
         
-        summary += f"""
+#         summary += f"""
 
-**Key Results (Mean Values)**
-- Heating System COP: {heating_cop_mean:.2f}
-- Cooling System COP: {cooling_cop_display}
-"""
+# **Key Results (Mean Values)**
+# - Heating System COP: {heating_cop_mean:.2f}
+# - Cooling System COP: {cooling_cop_display}
+# """
     
-    return summary
+#     return summary
 
-
-def create_quick_visualization(param_name: str, data: pd.Series, title: Optional[str] = None) -> go.Figure:
-    """
-    create a quick visualization for a single parameter
-    """
-    if title is None:
-        title = f"Distribution: {param_name.replace('_', ' ').title()}"
+# def create_quick_visualization(param_name: str, data: pd.Series, title: Optional[str] = None) -> go.Figure:
+#     """
+#     create a quick visualization for a single parameter
+#     """
+#     if title is None:
+#         title = f"Distribution: {param_name.replace('_', ' ').title()}"
     
-    # create subplot with histogram and box plot
-    fig = make_subplots(
-        rows=1, cols=2,
-        subplot_titles=["Distribution", "Statistics"],
-        column_widths=[0.7, 0.3]
-    )
+#     fig = make_subplots(
+#         rows=1, cols=2,
+#         subplot_titles=["Distribution", "Statistics"],
+#         column_widths=[0.7, 0.3]
+#     )
     
-    # Histogram
-    fig.add_trace(
-        go.Histogram(x=data, nbinsx=30, name="Frequency", showlegend=False),
-        row=1, col=1
-    )
+#     fig.add_trace(
+#         go.Histogram(
+#             x=data, 
+#             nbinsx=30, 
+#             name="Frequency", 
+#             showlegend=False,
+#             marker=dict(line=dict(color='black', width=0.5))
+#         ),
+#         row=1, col=1
+#     )
     
-    # Box plot
-    fig.add_trace(
-        go.Box(y=data, name="Statistics", showlegend=False),
-        row=1, col=2
-    )
+#     fig.add_trace(
+#         go.Box(
+#             y=data, 
+#             name="Statistics", 
+#             showlegend=False,
+#             line=dict(color='black')
+#         ),
+#         row=1, col=2
+#     )
     
-    # Add mean line with safe conversion
-    mean_val = safe_float(data.mean())
-    fig.add_vline(x=mean_val, line_dash="dash", line_color="red", 
-                  annotation_text=f"Mean: {mean_val:.3f}")
+#     mean_val = safe_float(data.mean())
+#     fig.add_vline(
+#         x=mean_val, 
+#         line_dash="dash", 
+#         line_color="red", 
+#         annotation_text=f"Mean: {mean_val:.3f}",
+#         annotation=dict(font=dict(color='black'))
+#     )
     
-    fig.update_layout(
-        title_text=title,
-        title_x=0.5,
-        height=400
-    )
+#     fig.update_layout(
+#         title_text=title,
+#         title_x=0.5,
+#         title_font=dict(color='black'),
+#         height=400,
+#         font=dict(color='black'),
+#         plot_bgcolor='white',
+#         paper_bgcolor='white'
+#     )
     
-    return fig
+#     fig.update_xaxes(
+#         linecolor='black',
+#         tickcolor='black',
+#         tickfont=dict(color='black'),
+#         title_font=dict(color='black'),
+#         showgrid=False,
+#         showline=True
+#     )
+#     fig.update_yaxes(
+#         linecolor='black',
+#         tickcolor='black',
+#         tickfont=dict(color='black'),
+#         title_font=dict(color='black'),
+#         showgrid=False,
+#         showline=True
+#     )
+    
+#     fig.update_annotations(font=dict(color='black'))
+    
+#     return fig
 
 
 # export the main classes and functions
 __all__ = [
     'ATESVisualizer',
     'ATESResultsExporter', 
-    'create_results_dashboard',
+    # 'create_results_dashboard',
     'render_summary_report_tab',
-    'format_monte_carlo_summary',
-    'create_quick_visualization',
+    # 'format_monte_carlo_summary',
+    # 'create_quick_visualization',
     'safe_float',
     'safe_int',
     'safe_abs'

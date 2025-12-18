@@ -220,10 +220,15 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
     
     stable_config = st.session_state.stable_param_values[stable_key]
     
+    # Check if this is an integer parameter
+    is_integer_param = 'number_of_doublets' in param_name
+    
     def update_stable_config(key: str, value: Any):
         """
         Callback function to update stable configuration
         """
+        if is_integer_param:
+            value = int(round(value))
         stable_config[key] = value
         dist_config[key] = value
         from tool.utils.state_management import mark_case_modified
@@ -231,38 +236,65 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
     
     if dist_type == 'single_value':
         val_key = f"val_{param_name}_v{version}"
-        st.number_input(
-            "Value",
-            value=float(stable_config.get('value', 0)),
-            key=val_key,
-            format="%.4f",
-            step=0.0001,
-            on_change=lambda: update_stable_config('value', st.session_state[val_key])
-        )
+        if is_integer_param:
+            st.number_input(
+                "Value",
+                value=int(stable_config.get('value', 0)),
+                key=val_key,
+                step=1,
+                on_change=lambda: update_stable_config('value', st.session_state[val_key])
+            )
+        else:
+            st.number_input(
+                "Value",
+                value=float(stable_config.get('value', 0)),
+                key=val_key,
+                format="%.4f",
+                step=0.0001,
+                on_change=lambda: update_stable_config('value', st.session_state[val_key])
+            )
     
     elif dist_type == 'range':
         col1, col2 = st.columns(2)
         with col1:
             min_key = f"min_{param_name}_v{version}"
-            st.number_input(
-                "Minimum",
-                value=float(stable_config.get('min', 0)),
-                key=min_key,
-                format="%.4f",
-                step=0.0001,
-                on_change=lambda: update_stable_config('min', st.session_state[min_key])
-            )
+            if is_integer_param:
+                st.number_input(
+                    "Minimum",
+                    value=int(stable_config.get('min', 0)),
+                    key=min_key,
+                    step=1,
+                    on_change=lambda: update_stable_config('min', st.session_state[min_key])
+                )
+            else:
+                st.number_input(
+                    "Minimum",
+                    value=float(stable_config.get('min', 0)),
+                    key=min_key,
+                    format="%.4f",
+                    step=0.0001,
+                    on_change=lambda: update_stable_config('min', st.session_state[min_key])
+                )
                 
         with col2:
             max_key = f"max_{param_name}_v{version}"
-            st.number_input(
-                "Maximum",
-                value=float(stable_config.get('max', 1)),
-                key=max_key,
-                format="%.4f",
-                step=0.0001,
-                on_change=lambda: update_stable_config('max', st.session_state[max_key])
-            )
+            if is_integer_param:
+                st.number_input(
+                    "Maximum",
+                    value=int(stable_config.get('max', 1)),
+                    key=max_key,
+                    step=1,
+                    on_change=lambda: update_stable_config('max', st.session_state[max_key])
+                )
+            else:
+                st.number_input(
+                    "Maximum",
+                    value=float(stable_config.get('max', 1)),
+                    key=max_key,
+                    format="%.4f",
+                    step=0.0001,
+                    on_change=lambda: update_stable_config('max', st.session_state[max_key])
+                )
         
         if stable_config.get('min', 0) >= stable_config.get('max', 1):
             st.error("Minimum must be less than maximum")
@@ -271,36 +303,63 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
         col1, col2, col3 = st.columns(3)
         with col1:
             tri_min_key = f"tri_min_{param_name}_v{version}"
-            st.number_input(
-                "Minimum",
-                value=float(stable_config.get('min', 0)),
-                key=tri_min_key,
-                format="%.4f",
-                step=0.0001,
-                on_change=lambda: update_stable_config('min', st.session_state[tri_min_key])
-            )
+            if is_integer_param:
+                st.number_input(
+                    "Minimum",
+                    value=int(stable_config.get('min', 0)),
+                    key=tri_min_key,
+                    step=1,
+                    on_change=lambda: update_stable_config('min', st.session_state[tri_min_key])
+                )
+            else:
+                st.number_input(
+                    "Minimum",
+                    value=float(stable_config.get('min', 0)),
+                    key=tri_min_key,
+                    format="%.4f",
+                    step=0.0001,
+                    on_change=lambda: update_stable_config('min', st.session_state[tri_min_key])
+                )
                 
         with col2:
             tri_ml_key = f"tri_ml_{param_name}_v{version}"
-            st.number_input(
-                "Most Likely",
-                value=float(stable_config.get('most_likely', 0.5)),
-                key=tri_ml_key,
-                format="%.4f",
-                step=0.0001,
-                on_change=lambda: update_stable_config('most_likely', st.session_state[tri_ml_key])
-            )
+            if is_integer_param:
+                st.number_input(
+                    "Most Likely",
+                    value=int(stable_config.get('most_likely', 1)),
+                    key=tri_ml_key,
+                    step=1,
+                    on_change=lambda: update_stable_config('most_likely', st.session_state[tri_ml_key])
+                )
+            else:
+                st.number_input(
+                    "Most Likely",
+                    value=float(stable_config.get('most_likely', 0.5)),
+                    key=tri_ml_key,
+                    format="%.4f",
+                    step=0.0001,
+                    on_change=lambda: update_stable_config('most_likely', st.session_state[tri_ml_key])
+                )
                 
         with col3:
             tri_max_key = f"tri_max_{param_name}_v{version}"
-            st.number_input(
-                "Maximum",
-                value=float(stable_config.get('max', 1)),
-                key=tri_max_key,
-                format="%.4f",
-                step=0.0001,
-                on_change=lambda: update_stable_config('max', st.session_state[tri_max_key])
-            )
+            if is_integer_param:
+                st.number_input(
+                    "Maximum",
+                    value=int(stable_config.get('max', 2)),
+                    key=tri_max_key,
+                    step=1,
+                    on_change=lambda: update_stable_config('max', st.session_state[tri_max_key])
+                )
+            else:
+                st.number_input(
+                    "Maximum",
+                    value=float(stable_config.get('max', 1)),
+                    key=tri_max_key,
+                    format="%.4f",
+                    step=0.0001,
+                    on_change=lambda: update_stable_config('max', st.session_state[tri_max_key])
+                )
         
         min_val = stable_config.get('min', 0)
         ml_val = stable_config.get('most_likely', 0.5)
@@ -312,26 +371,45 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
         col1, col2 = st.columns(2)
         with col1:
             mean_key = f"mean_{param_name}_v{version}"
-            st.number_input(
-                "Mean",
-                value=float(stable_config.get('mean', 0)),
-                key=mean_key,
-                format="%.4f",
-                step=0.0001,
-                on_change=lambda: update_stable_config('mean', st.session_state[mean_key])
-            )
+            if is_integer_param:
+                st.number_input(
+                    "Mean",
+                    value=int(stable_config.get('mean', 0)),
+                    key=mean_key,
+                    step=1,
+                    on_change=lambda: update_stable_config('mean', st.session_state[mean_key])
+                )
+            else:
+                st.number_input(
+                    "Mean",
+                    value=float(stable_config.get('mean', 0)),
+                    key=mean_key,
+                    format="%.4f",
+                    step=0.0001,
+                    on_change=lambda: update_stable_config('mean', st.session_state[mean_key])
+                )
                 
         with col2:
             std_key = f"std_{param_name}_v{version}"
-            st.number_input(
-                "Standard Deviation",
-                value=float(stable_config.get('std', 0.1)),
-                min_value=0.0,
-                key=std_key,
-                format="%.4f",
-                step=0.0001,
-                on_change=lambda: update_stable_config('std', st.session_state[std_key])
-            )
+            if is_integer_param:
+                st.number_input(
+                    "Standard Deviation",
+                    value=int(stable_config.get('std', 1)),
+                    min_value=0,
+                    key=std_key,
+                    step=1,
+                    on_change=lambda: update_stable_config('std', st.session_state[std_key])
+                )
+            else:
+                st.number_input(
+                    "Standard Deviation",
+                    value=float(stable_config.get('std', 0.1)),
+                    min_value=0.0,
+                    key=std_key,
+                    format="%.4f",
+                    step=0.0001,
+                    on_change=lambda: update_stable_config('std', st.session_state[std_key])
+                )
         
         if dist_type == 'lognormal':
             col3, col4 = st.columns(2)
@@ -493,7 +571,7 @@ def render_distribution_preview(param_name: str, dist_config: Dict, param_label:
     Render a preview of the parameter distribution
     """
     try:
-        n_samples = 1000
+        n_samples = 30000
         rng = np.random.default_rng(42)
         
         if dist_config['type'] == 'single_value':

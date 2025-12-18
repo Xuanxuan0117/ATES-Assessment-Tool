@@ -178,6 +178,8 @@ def render_parameter_section_a():
     """
     Physical Parameters (3 parameters)
     """
+    v = st.session_state.get('input_widget_version', 0)
+    
     with st.expander("A. Physical Parameters", expanded=False):
         col1, col2 = st.columns(2)
         
@@ -189,7 +191,8 @@ def render_parameter_section_a():
                 max_value=25.0,
                 step=0.1,
                 format="%.2f",
-                help="Aquifer temperature"
+                help="Aquifer temperature",
+                key=f"aquifer_temp_v{v}"
             )
             
             water_density = st.number_input(
@@ -199,7 +202,8 @@ def render_parameter_section_a():
                 max_value=1005.0,
                 step=0.1,
                 format="%.2f",
-                help="Length of the cooling season"
+                help="Length of the cooling season",
+                key=f"water_density_v{v}"
             )
         
         with col2:
@@ -210,7 +214,8 @@ def render_parameter_section_a():
                 max_value=4300.0,
                 step=1.0,
                 format="%.2f",
-                help="Water specific heat capacity"
+                help="Water specific heat capacity",
+                key=f"water_specific_heat_capacity_v{v}"
             )
         
         st.session_state['_temp_aquifer_temp'] = aquifer_temp
@@ -222,6 +227,8 @@ def render_parameter_section_b():
     """
     Demand Parameters (4 parameters) 
     """
+    v = st.session_state.get('input_widget_version', 0)
+    
     with st.expander("B. Demand Parameters", expanded=False):
         col1, col2 = st.columns(2)
         
@@ -233,7 +240,8 @@ def render_parameter_section_b():
                 max_value=365.0,
                 step=1.0,
                 format="%.2f",
-                help="Length of the heating"
+                help="Length of the heating",
+                key=f"heating_days_v{v}"
             )
             
             heating_temp_to_building = st.number_input(
@@ -243,7 +251,8 @@ def render_parameter_section_b():
                 max_value=80.0,
                 step=1.0,
                 format="%.2f",
-                help="Building heating temperature"
+                help="Building heating temperature",
+                key=f"heating_temp_to_building_v{v}"
             )
         
         with col2:
@@ -254,7 +263,8 @@ def render_parameter_section_b():
                 max_value=365.0,
                 step=1.0,
                 format="%.2f",
-                help="Length of the cooling"
+                help="Length of the cooling",
+                key=f"cooling_days_v{v}"
             )
             
             cooling_temp_to_building = st.number_input(
@@ -264,7 +274,8 @@ def render_parameter_section_b():
                 max_value=100.0,
                 step=0.1,
                 format="%.2f",
-                help="Building cooling temperature"
+                help="Building cooling temperature",
+                key=f"cooling_temp_to_building_v{v}"
             )
         
         st.session_state['_temp_heating_days'] = heating_days
@@ -277,6 +288,8 @@ def render_parameter_section_c():
     """
     ATES System Operation (6 parameters) 
     """
+    v = st.session_state.get('input_widget_version', 0)
+    
     with st.expander("C. System Operation", expanded=False):
         col1, col2 = st.columns(2)
         
@@ -288,7 +301,8 @@ def render_parameter_section_c():
                 max_value=200.0,
                 step=1.0,
                 format="%.2f",
-                help="Target flow rate for heating per borehole"
+                help="Target flow rate for heating per borehole",
+                key=f"heating_target_avg_flowrate_pd_v{v}"
             )
             
             heating_number_of_doublets = st.number_input(
@@ -297,7 +311,8 @@ def render_parameter_section_c():
                 min_value=1,
                 max_value=100,
                 step=1,
-                help="Number of well doublets"
+                help="Number of well doublets",
+                key=f"heating_number_of_doublets_v{v}"
             )
             
             heating_ave_injection_temp = st.number_input(
@@ -307,7 +322,8 @@ def render_parameter_section_c():
                 max_value=15.0,
                 step=0.1,
                 format="%.2f",
-                help="Cool well injection temperature (< Aquifer Temperature)"
+                help="Cool well injection temperature (< Aquifer Temperature)",
+                key=f"heating_ave_injection_temp_v{v}"
             )
         
         with col2:
@@ -318,7 +334,8 @@ def render_parameter_section_c():
                 max_value=1.0,
                 step=0.01,
                 format="%.2f",
-                help="Thermal recovery efficiency"
+                help="Thermal recovery efficiency",
+                key=f"thermal_recovery_factor_v{v}"
             )
             
             tolerance_in_energy_balance = st.number_input(
@@ -328,7 +345,8 @@ def render_parameter_section_c():
                 max_value=0.5,
                 step=0.01,
                 format="%.2f",
-                help="Energy balance tolerance"
+                help="Energy balance tolerance",
+                key=f"tolerance_in_energy_balance_v{v}"
             )
             
             cooling_ave_injection_temp = st.number_input(
@@ -338,7 +356,8 @@ def render_parameter_section_c():
                 max_value=35.0,
                 step=0.1,
                 format="%.2f",
-                help="Warm well injection temperature (> Aquifer Temperature)"
+                help="Warm well injection temperature (> Aquifer Temperature)",
+                key=f"cooling_ave_injection_temp_v{v}"
             )
         
         st.session_state['_temp_heating_target_avg_flowrate_pd'] = heating_target_avg_flowrate_pd
@@ -353,6 +372,8 @@ def render_parameter_section_d():
     """
     Heat Pump and Carbon Intensity (6 parameters) 
     """
+    v = st.session_state.get('input_widget_version', 0)
+    
     with st.expander("D. Heat Pump and Carbon Intensity", expanded=False):
         col1, col2 = st.columns(2)
         
@@ -364,7 +385,8 @@ def render_parameter_section_d():
                 max_value=200.0,
                 step=1.0,
                 format="%.2f",
-                help="COP model parameter A"
+                help="COP model parameter A",
+                key=f"cop_param_a_v{v}"
             )
             
             cop_param_c = st.number_input(
@@ -374,7 +396,8 @@ def render_parameter_section_d():
                 max_value=0.2,
                 step=0.01,
                 format="%.2f",
-                help="COP model parameter C"
+                help="COP model parameter C",
+                key=f"cop_param_c_v{v}"
             )
             
             pump_energy_density = st.number_input(
@@ -384,7 +407,8 @@ def render_parameter_section_d():
                 max_value=1500.0,
                 step=10.0,
                 format="%.2f",
-                help="Hydraulic pump energy density"
+                help="Hydraulic pump energy density",
+                key=f"pump_energy_density_v{v}"
             )
         
         with col2:
@@ -395,7 +419,8 @@ def render_parameter_section_d():
                 max_value=3.0,
                 step=0.1,
                 format="%.2f",
-                help="COP model parameter B (must be positive)"
+                help="COP model parameter B (must be positive)",
+                key=f"cop_param_b_v{v}"
             )
             
             cop_param_d = st.number_input(
@@ -405,7 +430,8 @@ def render_parameter_section_d():
                 max_value=15.0,
                 step=0.1,
                 format="%.2f",
-                help="COP model parameter D"
+                help="COP model parameter D",
+                key=f"cop_param_d_v{v}"
             )
             
             carbon_intensity = st.number_input(
@@ -415,7 +441,8 @@ def render_parameter_section_d():
                 max_value=1000.0,
                 step=10.0,
                 format="%.2f",
-                help="Grid carbon intensity"
+                help="Grid carbon intensity",
+                key=f"carbon_intensity_v{v}"
             )
         
         st.session_state['_temp_cop_param_a'] = cop_param_a
@@ -424,7 +451,6 @@ def render_parameter_section_d():
         st.session_state['_temp_cop_param_d'] = cop_param_d
         st.session_state['_temp_pump_energy_density'] = pump_energy_density
         st.session_state['_temp_carbon_intensity'] = carbon_intensity
-
 
 def render_parameter_section_e():
     """E. Auto-calculated Parameters (Display Read-only)"""
@@ -564,10 +590,6 @@ def perform_calculation():
         
         # Initialize or update probability distributions after successful calculation
         initialize_default_distributions()
-        
-        # Mark case as modified for new calculation result
-        mark_case_modified()
-        
         calc_time = time.time() - start_time
         st.success(f"Calculation complete! Time taken: {calc_time:.3f} seconds")
         return True
@@ -870,34 +892,34 @@ def main():
         
         with col2:
             if st.button("Reset", width="stretch"):
-                # Clear temporary variables
-                temp_keys = [key for key in st.session_state.keys() 
-                        if isinstance(key, str) and key.startswith('_temp_')]
+                # Try to restore case snapshot first (for loaded cases)
+                app_state = get_app_state()
+                if app_state.restore_case_snapshot():
+                    # Reset to loaded case state
+                    st.session_state['case_modified'] = False
+                    st.success("Parameters reset to loaded case state")
+                else:
+                    # No snapshot, reset to default
+                    from tool.core.ates_calculator import ATESParameters
+                    st.session_state.ates_params = ATESParameters()
+                    
+                    # Clear calculation results
+                    st.session_state['results'] = None
+                    st.session_state['calculation_count'] = 0
+                    st.session_state['calculation_status'] = 'not_started'
+                    
+                    # Reinitialize distributions
+                    initialize_default_distributions()
+                    
+                    # Sync temp variables
+                    initialize_temp_variables_from_params()
+                    
+                    # Increment widget version to force refresh
+                    st.session_state['input_widget_version'] = st.session_state.get('input_widget_version', 0) + 1
+                    
+                    st.session_state['case_modified'] = False
+                    st.success("Parameters reset to default values")
                 
-                for key in temp_keys:
-                    del st.session_state[key]
-                
-                # Clear calculation results and reset tracking
-                result_keys = ['results', 'calculation_count', 'last_calculation_time', 'calculation_status']
-                for key in result_keys:
-                    if key in st.session_state:
-                        del st.session_state[key]
-                
-                # Reset ATES parameters to default
-                from tool.core.ates_calculator import ATESParameters
-                st.session_state.ates_params = ATESParameters()
-                
-                # Reset calculation tracking
-                st.session_state.calculation_count = 0
-                st.session_state.calculation_status = 'not_started'
-                
-                # Reinitialize distributions
-                initialize_default_distributions()
-                
-                # Mark case as modified
-                mark_case_modified()
-                
-                st.success("Parameters reset to default values")
                 st.rerun()
         
         with col3:
