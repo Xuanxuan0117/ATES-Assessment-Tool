@@ -1634,12 +1634,12 @@ class ATESVisualizer:
             )
         )
         
-        # Add correlation values as text on bars
-        fig.update_traces(
-            text=top_params[abs_corr_col].round(3),
-            textposition='outside',
-            textfont=dict(color='black')
-        )
+        # # Add correlation values as text on bars
+        # fig.update_traces(
+        #     text=top_params[abs_corr_col].round(3),
+        #     textposition='outside',
+        #     textfont=dict(color='black')
+        # )
         
         st.plotly_chart(fig, width="stretch")
 
