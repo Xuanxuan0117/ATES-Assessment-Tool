@@ -105,9 +105,13 @@ def sync_param_to_distribution(param_name: str, value: float):
             dist['value'] = value
             dist['mean'] = value
             dist['most_likely'] = value
-            dist['min'] = value * 0.8
-            dist['max'] = value * 1.2
-            dist['std'] = max(value * 0.1, 0.01)
+            # dist['min'] = value * 0.8
+            # dist['max'] = value * 1.2
+            # dist['std'] = max(value * 0.1, 0.01)
+
+        # Clear stable_param_values cache to force UI refresh
+            st.session_state['stable_param_values'] = {}
+            st.session_state['param_config_version'] = st.session_state.get('param_config_version', 0) + 1
 
 def sync_all_params_to_distributions():
     """

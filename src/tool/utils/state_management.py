@@ -9,6 +9,8 @@ import numpy as np
 import json
 import time
 import re
+import hashlib
+        
 
 class RealTimeStatusChecker:
     """Real-time status checker with no cache delays"""
@@ -103,6 +105,102 @@ class ATESAppState:
         if 'mc_config' not in st.session_state:
             from tool.core.monte_carlo_engine import MonteCarloConfig
             st.session_state['mc_config'] = MonteCarloConfig()
+
+    def _check_mc_results_outdated(self) -> bool:
+        """Check if Monte Carlo results are outdated """
+        if 'monte_carlo_results' not in st.session_state or st.session_state.monte_carlo_results is None:
+            return False
+        
+        if '_mc_config_hash' not in st.session_state:
+            return False
+        
+        # Build config snapshot with only relevant fields for each distribution type
+        distributions_snapshot = {}
+        for param_name, dist in st.session_state.get('param_distributions', {}).items():
+            dist_type = dist.get('type', 'single_value')
+            if dist_type == 'single_value':
+                distributions_snapshot[param_name] = {
+                    'type': dist_type,
+                    'value': dist.get('value')
+                }
+            elif dist_type == 'range':
+                distributions_snapshot[param_name] = {
+                    'type': dist_type,
+                    'min': dist.get('min'),
+                    'max': dist.get('max')
+                }
+            elif dist_type == 'triangular':
+                distributions_snapshot[param_name] = {
+                    'type': dist_type,
+                    'min': dist.get('min'),
+                    'max': dist.get('max'),
+                    'most_likely': dist.get('most_likely')
+                }
+            elif dist_type in ['normal', 'lognormal']:
+                distributions_snapshot[param_name] = {
+                    'type': dist_type,
+                    'mean': dist.get('mean'),
+                    'std': dist.get('std')
+                }
+        
+        config_snapshot = {
+            'param_distributions': distributions_snapshot,
+            'mc_config': {
+                'iterations': st.session_state.mc_config.iterations if 'mc_config' in st.session_state else 10000,
+                'seed': st.session_state.mc_config.seed if 'mc_config' in st.session_state else None
+            }
+        }
+        config_str = json.dumps(config_snapshot, sort_keys=True, default=str)
+        current_hash = hashlib.md5(config_str.encode()).hexdigest()
+        
+        return current_hash != st.session_state._mc_config_hash
+    
+    def _check_distribution_params_mismatch(self) -> bool:
+        """Check if distribution settings are out of sync with Quick Look parameters"""
+        if 'param_distributions' not in st.session_state or 'ates_params' not in st.session_state:
+            return False
+        
+        params = st.session_state.ates_params
+        distributions = st.session_state.param_distributions
+        
+        param_names = [
+            'aquifer_temp', 'water_density', 'water_specific_heat_capacity',
+            'thermal_recovery_factor', 'heating_target_avg_flowrate_pd',
+            'tolerance_in_energy_balance', 'heating_number_of_doublets',
+            'heating_days', 'cooling_days', 'pump_energy_density',
+            'heating_ave_injection_temp', 'heating_temp_to_building',
+            'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
+            'carbon_intensity', 'cooling_ave_injection_temp', 'cooling_temp_to_building'
+        ]
+        
+        for param_name in param_names:
+            if param_name in distributions and hasattr(params, param_name):
+                dist = distributions[param_name]
+                dist_type = dist.get('type', 'single_value')
+                param_value = getattr(params, param_name)
+                
+                # Get the representative value based on distribution type
+                if dist_type == 'single_value':
+                    dist_value = dist.get('value')
+                elif dist_type == 'triangular':
+                    dist_value = dist.get('most_likely')
+                elif dist_type in ['normal', 'lognormal']:
+                    dist_value = dist.get('mean')
+                elif dist_type == 'range':
+                    min_val = dist.get('min', 0)
+                    max_val = dist.get('max', 0)
+                    dist_value = (min_val + max_val) / 2
+                else:
+                    dist_value = dist.get('value')
+                
+                if dist_value is not None and param_value is not None:
+                    try:
+                        if abs(float(dist_value) - float(param_value)) > 1e-6:
+                            return True
+                    except (TypeError, ValueError):
+                        pass
+        
+        return False
     
     def render_case_management(self):
         """
@@ -218,6 +316,18 @@ class ATESAppState:
         if has_unsaved_changes:
             st.sidebar.warning("You have unsaved parameter changes. Click 'Calculate' first to include them in the save.")
         
+        # Check for outdated Monte Carlo results
+        mc_outdated = self._check_mc_results_outdated()
+        
+        if mc_outdated:
+            st.sidebar.warning("Monte Carlo results are outdated. Parameters have changed since last run. Please re-run the analysis.")
+        
+        # Check for distribution/parameter mismatch
+        dist_mismatch = self._check_distribution_params_mismatch()
+        
+        if dist_mismatch:
+            st.sidebar.warning("Distribution settings are out of sync with Quick Look parameters. Use 'Sync FROM/TO Quick Look' to synchronize.")
+    
         # Save button
         if st.sidebar.button("Save Case", type="primary", width="stretch", key="stable_save_btn"):
             if has_unsaved_changes:
@@ -680,29 +790,6 @@ class ATESAppState:
         try:
             param_distributions = getattr(st.session_state, 'param_distributions', {})
             if param_distributions and isinstance(param_distributions, dict):
-                # Display name mapping
-                display_names = {
-                    'aquifer_temp': 'Aquifer Temperature (°C)',
-                    'water_density': 'Water Density (kg/m³)',
-                    'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
-                    'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
-                    'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
-                    'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
-                    'heating_number_of_doublets': 'Number of Doublets',
-                    'heating_days': 'Heating Days',
-                    'cooling_days': 'Cooling Days',
-                    'pump_energy_density': 'Hydraulic Pump Energy Density (kJ/m³)',
-                    'heating_ave_injection_temp': 'Cool Well Injection Temperature (°C)',
-                    'heating_temp_to_building': 'Building Heating Temperature (°C)',
-                    'cop_param_a': 'COP Parameter A (-)',
-                    'cop_param_b': 'COP Parameter B (-)',
-                    'cop_param_c': 'COP Parameter C (-)',
-                    'cop_param_d': 'COP Parameter D (-)',
-                    'carbon_intensity': 'Carbon Intensity (gCO₂/kWh)',
-                    'cooling_ave_injection_temp': 'Warm Well Injection Temperature (°C)',
-                    'cooling_temp_to_building': 'Building Cooling Temperature (°C)'
-                }
-                
                 # Convert to display names
                 converted_distributions = {}
                 for key, value in param_distributions.items():
@@ -712,6 +799,17 @@ class ATESAppState:
                 data['param_distributions'] = converted_distributions
         except Exception:
             pass
+
+            # Monte Carlo configuration
+        if 'mc_config' in st.session_state:
+            mc_config = st.session_state.mc_config
+            data['monte_carlo_config'] = {
+                'iterations': st.session_state.get('monte_carlo_iterations', mc_config.iterations),
+                'seed': mc_config.seed,
+                'chunk_size': mc_config.chunk_size,
+                'max_workers': mc_config.max_workers,
+                'parallel': mc_config.parallel
+            }
         
         return data
     
@@ -895,7 +993,22 @@ class ATESAppState:
             except Exception:
                 self._create_fresh_distributions()
         
-        
+        # Load Monte Carlo configuration
+        if 'monte_carlo_config' in state_data:
+            mc_data = state_data['monte_carlo_config']
+            from tool.core.monte_carlo_engine import MonteCarloConfig
+            
+            st.session_state['monte_carlo_iterations'] = mc_data.get('iterations', 10000)
+            
+            mc_config = MonteCarloConfig(
+                iterations=mc_data.get('iterations', 10000),
+                seed=mc_data.get('seed', None),
+                chunk_size=mc_data.get('chunk_size', 1000),
+                max_workers=mc_data.get('max_workers', None),
+                parallel=mc_data.get('parallel', True)
+            )
+            st.session_state['mc_config'] = mc_config
+
         from tool.core.ates_calculator import ATESParameters
         ATESParameters.enable_validation()
         

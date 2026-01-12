@@ -7,6 +7,8 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import hashlib
+import json
 from plotly.subplots import make_subplots
 import scipy.stats as stats
 from typing import Dict, List, Any, Optional
@@ -121,12 +123,11 @@ def sync_from_deterministic():
             dist['value'] = current_value
             dist['mean'] = current_value
             dist['most_likely'] = current_value
-            
-            if dist['min'] == dist['max'] or abs(dist['min'] - dist['max']) < 1e-6:
-                dist['min'] = current_value * 0.8
-                dist['max'] = current_value * 1.2
-            
             dist['std'] = max(current_value * 0.1, 0.01)
+
+        # Clear stable_param_values cache to force UI refresh
+    st.session_state['stable_param_values'] = {}
+    st.session_state['param_config_version'] = st.session_state.get('param_config_version', 0) + 1
 
 def sync_to_deterministic():
     """
@@ -671,7 +672,7 @@ def render_monte_carlo_settings():
     with col1:
         st.session_state.monte_carlo_iterations = st.number_input(
             "Number of Iterations",
-            value=st.session_state.monte_carlo_iterations,
+            value=st.session_state.get('monte_carlo_iterations', 10000),
             min_value=1000,
             max_value=100000,
             step=1000,
@@ -679,9 +680,11 @@ def render_monte_carlo_settings():
         )
     
     with col2:
+        # Read seed from mc_config, default to 42
+        current_seed = st.session_state.mc_config.seed if st.session_state.mc_config.seed is not None else 42
         seed = st.number_input(
             "Random Seed",
-            value=42,
+            value=current_seed,
             min_value=0,
             help="Set for reproducible results (0 for random)"
         )
@@ -690,7 +693,7 @@ def render_monte_carlo_settings():
     with col3:
         parallel = st.checkbox(
             "Parallel Processing",
-            value=True,
+            value=st.session_state.mc_config.parallel,
             help="Use multiple CPU cores for faster computation"
         )
         st.session_state.mc_config.parallel = parallel
@@ -701,7 +704,7 @@ def render_monte_carlo_settings():
         with col1:
             max_workers = st.number_input(
                 "Max Workers",
-                value=4,
+                value=st.session_state.mc_config.max_workers if st.session_state.mc_config.max_workers is not None else 4,
                 min_value=1,
                 max_value=16,
                 help="Number of parallel workers (if parallel processing enabled)"
@@ -711,7 +714,7 @@ def render_monte_carlo_settings():
         with col2:
             chunk_size = st.number_input(
                 "Chunk Size",
-                value=1000,
+                value=st.session_state.mc_config.chunk_size,
                 min_value=100,
                 max_value=10000,
                 help="Number of iterations per chunk for progress tracking"
@@ -839,63 +842,102 @@ def validate_distribution_config() -> List[str]:
     return errors
 
 def run_monte_carlo_analysis():
-   """
-   Execute Monte Carlo analysis 
-   """
-   try:
-       progress_bar = st.progress(0)
-       status_text = st.empty()
-       
-       mc_engine = ATESMonteCarloEngine(
-           st.session_state.ates_params,
-           st.session_state.mc_config
-       )
-       
-       progress_callback = create_progress_callback(progress_bar, status_text)
-       
-       start_time = time.time()
-       results_df = mc_engine.run_simulation(
-           st.session_state.param_distributions,
-           progress_callback
-       )
-       computation_time = time.time() - start_time
-       
-       # Store results
-       st.session_state.monte_carlo_results = results_df
-       st.session_state._last_mc_computation_time = computation_time
-       
-       # Calculate sensitivity analysis if uncertain parameters exist
-       uncertain_params = {name: config for name, config in st.session_state.param_distributions.items() 
-                          if config['type'] != 'single_value'}
-       
-       if uncertain_params:
-           rng = np.random.default_rng(st.session_state.mc_config.seed)
-           parameter_samples = mc_engine._generate_parameter_samples(
-               st.session_state.param_distributions, rng
-           )
-           
-           try:
-               sensitivity_results = mc_engine.calculate_sensitivity_analysis(parameter_samples)
-               st.session_state.sensitivity_results = sensitivity_results
-           except Exception:
-               st.session_state.sensitivity_results = None
-       else:
-           st.session_state.sensitivity_results = None
+    """
+    Execute Monte Carlo analysis 
+    """
+    try:
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        mc_engine = ATESMonteCarloEngine(
+            st.session_state.ates_params,
+            st.session_state.mc_config
+        )
+        
+        progress_callback = create_progress_callback(progress_bar, status_text)
+        
+        start_time = time.time()
+        results_df = mc_engine.run_simulation(
+            st.session_state.param_distributions,
+            progress_callback
+        )
+        computation_time = time.time() - start_time
+        
+        # Store results
+        st.session_state.monte_carlo_results = results_df
+        st.session_state._last_mc_computation_time = computation_time
+        
+        # Build config snapshot with only relevant fields for each distribution type
+        distributions_snapshot = {}
+        for param_name, dist in st.session_state.param_distributions.items():
+            dist_type = dist.get('type', 'single_value')
+            if dist_type == 'single_value':
+                distributions_snapshot[param_name] = {
+                    'type': dist_type,
+                    'value': dist.get('value')
+                }
+            elif dist_type == 'range':
+                distributions_snapshot[param_name] = {
+                    'type': dist_type,
+                    'min': dist.get('min'),
+                    'max': dist.get('max')
+                }
+            elif dist_type == 'triangular':
+                distributions_snapshot[param_name] = {
+                    'type': dist_type,
+                    'min': dist.get('min'),
+                    'max': dist.get('max'),
+                    'most_likely': dist.get('most_likely')
+                }
+            elif dist_type in ['normal', 'lognormal']:
+                distributions_snapshot[param_name] = {
+                    'type': dist_type,
+                    'mean': dist.get('mean'),
+                    'std': dist.get('std')
+                }
+        
+        config_snapshot = {
+            'param_distributions': distributions_snapshot,
+            'mc_config': {
+                'iterations': st.session_state.mc_config.iterations,
+                'seed': st.session_state.mc_config.seed
+            }
+        }
+        config_str = json.dumps(config_snapshot, sort_keys=True, default=str)
+        st.session_state._mc_config_hash = hashlib.md5(config_str.encode()).hexdigest()
+        
+        # Calculate sensitivity analysis if uncertain parameters exist
+        uncertain_params = {name: config for name, config in st.session_state.param_distributions.items() 
+                           if config['type'] != 'single_value'}
+        
+        if uncertain_params:
+            rng = np.random.default_rng(st.session_state.mc_config.seed)
+            parameter_samples = mc_engine._generate_parameter_samples(
+                st.session_state.param_distributions, rng
+            )
+            
+            try:
+                sensitivity_results = mc_engine.calculate_sensitivity_analysis(parameter_samples)
+                st.session_state.sensitivity_results = sensitivity_results
+            except Exception:
+                st.session_state.sensitivity_results = None
+        else:
+            st.session_state.sensitivity_results = None
 
-       # Set completion flag
-       st.session_state._mc_completed = True
-       
-       # Clean up progress indicators
-       progress_bar.empty()
-       status_text.empty()
-       
-       # Only show success message
-       st.success("Monte Carlo analysis completed!")
+        # Set completion flag
+        st.session_state._mc_completed = True
+        
+        # Clean up progress indicators
+        progress_bar.empty()
+        status_text.empty()
+        
+        # Only show success message
+        st.success("Monte Carlo analysis completed!")
 
-       st.rerun()
+        st.rerun()
 
-   except Exception as e:
-       st.error(f"Monte Carlo analysis failed: {str(e)}")
+    except Exception as e:
+        st.error(f"Monte Carlo analysis failed: {str(e)}")
 
 def display_monte_carlo_results():
    """
@@ -1113,6 +1155,7 @@ def main():
                      help="Export representative values to deterministic calculation"):
             sync_to_deterministic()  # Export values to Quick Look screen
             st.success("Synchronized to Quick Look")
+            st.rerun()
     
     with col3:
         # Button to reset all parameters to their default values
