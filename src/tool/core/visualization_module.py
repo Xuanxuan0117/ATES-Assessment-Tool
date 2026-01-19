@@ -175,9 +175,11 @@ class ATESVisualizer:
                 'cooling_ave_power_to_building_W': 'Average Power to Building (W)'
             },
             
-            'System Balance': {
+            'System Balance & Groundwater Volumes': {
                 'energy_balance_ratio': 'Energy Balance Ratio (EBR)',
-                'volume_balance_ratio': 'Volume Balance Ratio (VBR)'
+                'volume_balance_ratio': 'Volume Balance Ratio (VBR)',
+                'heating_total_produced_volume': 'Heating Produced Volume (m³)',
+                'cooling_total_produced_volume': 'Cooling Produced Volume (m³)'
             }
         }
         
@@ -193,7 +195,7 @@ class ATESVisualizer:
             'Cooling System - Flow & Temperature': '#0D6EFD', 
             'Cooling System - Power': '#0D6EFD',
             'Cooling System - Heat Pump & Electrical': '#0D6EFD',
-            'System Balance': '#7F7F7F',
+            'System Balance & Groundwater Volumes': '#7F7F7F',
             'System Balance & Overall': '#7F7F7F'
         }
     
@@ -263,8 +265,8 @@ class ATESVisualizer:
             default_count = 3
         elif 'Power' in selected_group:
             default_count = 2
-        elif 'System Balance' in selected_group:
-            default_count = 2
+        elif 'System Balance' in selected_group or 'Groundwater Volumes' in selected_group:
+            default_count = 4
         else:
             default_count = 3
 
@@ -354,8 +356,34 @@ class ATESVisualizer:
                 st.warning("Try re-running the Monte Carlo simulation to generate sensitivity results")
             return
         
+        # Get available output parameters and filter out duplicate unit versions
+        all_output_params = list(self.sensitivity_results.keys())
+        
+        # Define suffixes to exclude (keep only one unit per parameter)
+        # Keep GWhth for energy, keep m3hr for flow rate, etc.
+        exclude_suffixes = [
+            '_J', '_kWhth',  # Keep GWhth for energy
+            '_W',  # Keep MW for power
+            '_ls', '_m3s',  # Keep m3hr for flow rate
+            '_MWhe',  # Keep GWhe for electrical energy
+        ]
+        
+        # Also exclude specific redundant parameters
+        exclude_params = [
+            'heating_annual_energy_aquifer_J', 'heating_annual_energy_aquifer_kWhth',
+            'heating_annual_energy_building_J', 'heating_annual_energy_building_kWhth',
+            'cooling_annual_energy_aquifer_J', 'cooling_annual_energy_aquifer_kWhth',
+            'cooling_annual_energy_building_J', 'cooling_annual_energy_building_kWhth',
+            'heating_ave_power_to_HX_W', 'heating_ave_power_to_building_W',
+            'cooling_ave_power_to_HX_W', 'cooling_ave_power_to_building_W',
+            'heating_total_flow_rate_ls', 'heating_total_flow_rate_m3s',
+            'cooling_total_flow_rate_ls', 'cooling_total_flow_rate_m3s',
+            'heating_annual_elec_energy_J', 'heating_annual_elec_energy_MWhe',
+            'cooling_annual_elec_energy_J', 'cooling_annual_elec_energy_MWhe',
+        ]
+        
         # Show available output parameters
-        output_params = list(self.sensitivity_results.keys())
+        output_params = [p for p in all_output_params if p not in exclude_params]
         st.success(f"Sensitivity analysis available for {len(output_params)} output parameters")
         
         # interface controls
@@ -1906,87 +1934,90 @@ class ATESVisualizer:
             'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
             'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)', 
             'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',  
-            'heating_number_of_doublets': 'Number of Doublets',  
-            'heating_days': 'Heating Days',
-            'cooling_days': 'Cooling Days',
+            'heating_number_of_doublets': 'Number of Doublets (-)',  
+            'heating_days': 'Heating Days (-)',
+            'cooling_days': 'Cooling Days (-)',
             'pump_energy_density': 'Pump Energy Density (kWh/m³)',
             'heating_ave_injection_temp': 'Cool Well Injection Temperature (°C)',
             'heating_temp_to_building': 'Building Heating Temperature (°C)', 
-            'cop_param_a': 'COP Parameter A',
-            'cop_param_b': 'COP Parameter B',
-            'cop_param_c': 'COP Parameter C',
-            'cop_param_d': 'COP Parameter D',
+            'cop_param_a': 'COP Parameter A (-)',
+            'cop_param_b': 'COP Parameter B (-)',
+            'cop_param_c': 'COP Parameter C (-)',
+            'cop_param_d': 'COP Parameter D (-)',
             'carbon_intensity': 'Carbon Intensity (kgCO₂/kWh)',
             'cooling_ave_injection_temp': 'Warm Well Injection Temperature (°C)',
             'cooling_temp_to_building': 'Building Cooling Temperature (°C)',
             
             # Output parameters - Heating
-            'heating_system_cop': 'Heating System COP',
+            'heating_system_cop': 'Heating System COP (-)',
             'heating_annual_energy_building_GWhth': 'Heating Annual Energy to Building (GWhth)',
             'heating_annual_elec_energy_GWhe': 'Heating Annual Electricity (GWhe)',
-            'heating_co2_emissions_per_thermal': 'Heating CO₂ Emissions per Thermal',
+            'heating_co2_emissions_per_thermal': 'Heating CO₂ Emissions per Thermal (gCO₂/kWhth)',
             'heating_ave_power_to_building_MW': 'Heating Average Power to Building (MW)',
-            'heating_ave_production_temp': 'Heating Average Production Temperature',
-            'heating_total_energy_stored': 'Heating Total Energy Stored',
-            'heating_stored_energy_recovered': 'Heating Stored Energy Recovered',
+            'heating_ave_production_temp': 'Heating Average Production Temperature (°C)',
+            'heating_total_energy_stored': 'Heating Total Energy Stored (J)',
+            'heating_stored_energy_recovered': 'Heating Stored Energy Recovered (J)',
             'heating_annual_energy_aquifer_J': 'Heating Annual Energy from Aquifer (J)',
             'heating_annual_energy_aquifer_kWhth': 'Heating Annual Energy from Aquifer (kWhth)',
             'heating_annual_energy_aquifer_GWhth': 'Heating Annual Energy from Aquifer (GWhth)',
             'heating_annual_energy_building_J': 'Heating Annual Energy to Building (J)',
             'heating_annual_energy_building_kWhth': 'Heating Annual Energy to Building (kWhth)',
-            'heating_elec_energy_per_thermal': 'Heating Electrical Energy per Thermal',
+            'heating_elec_energy_per_thermal': 'Heating Electrical Energy per Thermal (kWhe/kWhth)',
             'heating_total_flow_rate_m3hr': 'Heating Total Flow Rate (m³/hr)',
             'heating_total_flow_rate_ls': 'Heating Total Flow Rate (l/s)',
             'heating_total_flow_rate_m3s': 'Heating Total Flow Rate (m³/s)',
-            'heating_ave_temp_change_across_HX': 'Heating Average Temperature Change Across HX',
-            'heating_temp_change_induced_HP': 'Heating Temperature Change Induced by HP',
-            'heating_heat_pump_COP': 'Heating Heat Pump COP',
-            'heating_ehp': 'Heating Heat Pump Factor (ehp)',
+            'heating_ave_temp_change_across_HX': 'Heating Average Temperature Change Across HX (°C)',
+            'heating_temp_change_induced_HP': 'Heating Temperature Change Induced by HP (°C)',
+            'heating_heat_pump_COP': 'Heating Heat Pump COP (-)',
+            'heating_ehp': 'Heating Heat Pump Factor ehp (-)',
             'heating_ave_power_to_HX_W': 'Heating Average Power to HX (W)',
             'heating_ave_power_to_HX_MW': 'Heating Average Power to HX (MW)',
             'heating_ave_power_to_building_W': 'Heating Average Power to Building (W)',
             'heating_monthly_to_HX': 'Heating Monthly Energy to HX (GWhth)',
             'heating_monthly_to_building': 'Heating Average Monthly to Building (GWhth)',
-            'heating_elec_energy_hydraulic_pumps': 'Heating Electrical Energy to Hydraulic Pumps',
-            'heating_elec_energy_HP': 'Heating Electrical Energy to Heat Pump',
+            'heating_elec_energy_hydraulic_pumps': 'Heating Electrical Energy to Hydraulic Pumps (J)',
+            'heating_elec_energy_HP': 'Heating Electrical Energy to Heat Pump (J)',
             'heating_annual_elec_energy_J': 'Heating Annual Electrical Energy (J)',
             'heating_annual_elec_energy_MWhe': 'Heating Annual Electrical Energy (MWhe)',
             
             # Output parameters - Cooling
-            'cooling_system_cop': 'Cooling System COP',
+            'cooling_system_cop': 'Cooling System COP (-)',
             'cooling_annual_energy_building_GWhth': 'Cooling Annual Energy to Building (GWhth)',
             'cooling_annual_elec_energy_GWhe': 'Cooling Annual Electricity (GWhe)',
-            'cooling_co2_emissions_per_thermal': 'Cooling CO₂ Emissions per Thermal',
+            'cooling_co2_emissions_per_thermal': 'Cooling CO₂ Emissions per Thermal (gCO₂/kWhth)',
             'cooling_ave_power_to_building_MW': 'Cooling Average Power to Building (MW)',
-            'cooling_ave_production_temp': 'Cooling Average Production Temperature',
-            'cooling_total_energy_stored': 'Cooling Total Energy Stored',
-            'cooling_stored_energy_recovered': 'Cooling Stored Energy Recovered',
+            'cooling_ave_production_temp': 'Cooling Average Production Temperature (°C)',
+            'cooling_total_energy_stored': 'Cooling Total Energy Stored (J)',
+            'cooling_stored_energy_recovered': 'Cooling Stored Energy Recovered (J)',
             'cooling_annual_energy_aquifer_J': 'Cooling Annual Energy from Aquifer (J)',
             'cooling_annual_energy_aquifer_kWhth': 'Cooling Annual Energy from Aquifer (kWhth)',
             'cooling_annual_energy_aquifer_GWhth': 'Cooling Annual Energy from Aquifer (GWhth)',
             'cooling_annual_energy_building_J': 'Cooling Annual Energy to Building (J)',
             'cooling_annual_energy_building_kWhth': 'Cooling Annual Energy to Building (kWhth)',
-            'cooling_elec_energy_per_thermal': 'Cooling Electrical Energy per Thermal',
+            'cooling_elec_energy_per_thermal': 'Cooling Electrical Energy per Thermal (kWhe/kWhth)',
             'cooling_total_flow_rate_m3hr': 'Cooling Total Flow Rate (m³/hr)',
             'cooling_total_flow_rate_ls': 'Cooling Total Flow Rate (l/s)',
             'cooling_total_flow_rate_m3s': 'Cooling Total Flow Rate (m³/s)',
-            'cooling_ave_temp_change_across_HX': 'Cooling Average Temperature Change Across HX',
-            'cooling_temp_change_induced_HP': 'Cooling Temperature Change Induced by HP',
-            'cooling_heat_pump_COP': 'Cooling Heat Pump COP',
-            'cooling_ehp': 'Cooling Heat Pump Factor (ehp)',
+            'cooling_ave_temp_change_across_HX': 'Cooling Average Temperature Change Across HX (°C)',
+            'cooling_temp_change_induced_HP': 'Cooling Temperature Change Induced by HP (°C)',
+            'cooling_heat_pump_COP': 'Cooling Heat Pump COP (-)',
+            'cooling_ehp': 'Cooling Heat Pump Factor ehp (-)',
             'cooling_ave_power_to_HX_W': 'Cooling Average Power to HX (W)',
             'cooling_ave_power_to_HX_MW': 'Cooling Average Power to HX (MW)',
             'cooling_ave_power_to_building_W': 'Cooling Average Power to Building (W)',
             'cooling_monthly_to_HX': 'Cooling Monthly Energy to HX (GWhth)',
             'cooling_monthly_to_building': 'Cooling Average Monthly to Building (GWhth)',
-            'cooling_elec_energy_hydraulic_pumps': 'Cooling Electrical Energy to Hydraulic Pumps',
-            'cooling_elec_energy_HP': 'Cooling Electrical Energy to Heat Pump',
+            'cooling_elec_energy_hydraulic_pumps': 'Cooling Electrical Energy to Hydraulic Pumps (J)',
+            'cooling_elec_energy_HP': 'Cooling Electrical Energy to Heat Pump (J)',
             'cooling_annual_elec_energy_J': 'Cooling Annual Electrical Energy (J)',
             'cooling_annual_elec_energy_MWhe': 'Cooling Annual Electrical Energy (MWhe)',
+            'cooling_target_avg_flowrate_pd': 'Cooling Target Flow Rate per Borehole (m³/hr)',
             
             # System parameters
             'energy_balance_ratio': 'Energy Balance Ratio (EBR)',
-            'volume_balance_ratio': 'Volume Balance Ratio (VBR)'
+            'volume_balance_ratio': 'Volume Balance Ratio (VBR)',
+            'heating_total_produced_volume': 'Heating Produced Volume (m³)',
+            'cooling_total_produced_volume': 'Cooling Produced Volume (m³)'
         }
         
         return name_mapping.get(param_name, param_name.replace('_', ' ').title())

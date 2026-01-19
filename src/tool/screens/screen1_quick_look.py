@@ -467,12 +467,7 @@ def render_parameter_section_e():
                 help="Water Density × Water Specific Heat"
             )
             
-            st.text_input(
-                "Shoulder Days",
-                value=f"{st.session_state.ates_params.shoulder_days:.1f}",
-                disabled=True,
-                help="365 - Heating Days - Cooling Days"
-            )
+            
             
             # st.text_input(
             #     "Number of Cooling Doublets",
@@ -482,6 +477,12 @@ def render_parameter_section_e():
             # )
         
         with col2:
+            st.text_input(
+                "Shoulder Days",
+                value=f"{st.session_state.ates_params.shoulder_days:.1f}",
+                disabled=True,
+                help="365 - Heating Days - Cooling Days"
+            )
             # st.text_input(
             #     "Cooling Flow Rate per Doublet (m³/hr)",
             #     value=f"{getattr(st.session_state.ates_params, 'cooling_target_avg_flowrate_pd', 0.0):.2f}",
@@ -489,19 +490,19 @@ def render_parameter_section_e():
             #     help="Calculated from energy balance"
             # )
             
-            st.text_input(
-                "Total Heating Volume (m³)",
-                value=f"{st.session_state.ates_params.heating_total_produced_volume:,.2f}",
-                disabled=True,
-                help="Total produced heating volume"
-            )
+            # st.text_input(
+            #     "Total Heating Volume (m³)",
+            #     value=f"{st.session_state.ates_params.heating_total_produced_volume:,.2f}",
+            #     disabled=True,
+            #     help="Total produced heating volume"
+            # )
             
-            st.text_input(
-                "Total Cooling Volume (m³)",
-                value=f"{st.session_state.ates_params.cooling_total_produced_volume:,.2f}",
-                disabled=True,
-                help="Total produced cooling volume"
-            )
+            # st.text_input(
+            #     "Total Cooling Volume (m³)",
+            #     value=f"{st.session_state.ates_params.cooling_total_produced_volume:,.2f}",
+            #     disabled=True,
+            #     help="Total produced cooling volume"
+            # )
 
 
 
@@ -794,13 +795,14 @@ def render_cooling_results(results):
         df_cooling = pd.DataFrame(cooling_data)
         st.dataframe(df_cooling, width="stretch", hide_index=True)
 
-def render_sustainability_results(results):
+def render_system_balance_and_volumes(results, params):
     """
-    Render sustainability and balance metrics
+    Render system balance and groundwater volumes metrics
     """
-    with st.expander("Sustainability", expanded=True):
+    with st.expander("System Balance & Groundwater Volumes", expanded=True):
         
-        # Key metrics display
+        # Balance ratios
+        # st.markdown("**System Balance**")
         col1, col2 = st.columns(2)
         
         with col1:
@@ -815,6 +817,24 @@ def render_sustainability_results(results):
                 "Volume Balance Ratio (VBR)",
                 f"{results.volume_balance_ratio:.3f}",
                 help="Ratio of cooling volume to heating volume"
+            )
+        
+        # Groundwater volumes
+        # st.markdown("**Groundwater Volumes**")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.metric(
+                "Heating Produced Volume",
+                f"{params.heating_total_produced_volume:,.0f} m³",
+                help="Total groundwater volume produced during heating season"
+            )
+        
+        with col2:
+            st.metric(
+                "Cooling Produced Volume",
+                f"{params.cooling_total_produced_volume:,.0f} m³",
+                help="Total groundwater volume produced during cooling season"
             )
         
         # # Detailed table
@@ -944,7 +964,7 @@ def main():
             # Render results
             render_heating_results(results)
             render_cooling_results(results)
-            render_sustainability_results(results)
+            render_system_balance_and_volumes(results, st.session_state.ates_params)
 
 if __name__ == "__main__":
     main()

@@ -236,6 +236,8 @@ class ATESResults:
     heating_system_cop: float = 0.0                      # K39 - COPs System Coefficent of Performance during heating
     heating_elec_energy_per_thermal: float = 0.0         # K40 - Es/e Electrical energy required per unit heating energy supplied by the system（kWhe/kWhth)
     heating_co2_emissions_per_thermal: float = 0.0       # K41 - C CO2 emitted per unit heating supplied (gCO2/kWhth)
+    heating_total_produced_volume: float = 0.0           # D21 - Vp,h Total produced heating volume (m³)
+    
     
     #Cooling output(N-Column with 30 parameters) 
     cooling_total_energy_stored: float = 0.0             # N3 - (-) Total energy stored during cooling (J)
@@ -269,6 +271,7 @@ class ATESResults:
     cooling_system_cop: float = 0.0                      # N39 - COPs System Coefficent of Performance during heating
     cooling_elec_energy_per_thermal: float = 0.0         # N40 - Es/e Electrical energy required per unit cooling energy supplied by the system（kWhe/kWhth)
     cooling_co2_emissions_per_thermal: float = 0.0       # N41 - C CO2 emitted per unit cooling supplied (gCO2/kWhth)
+    cooling_total_produced_volume: float = 0.0           # G21 - Vp,c Total produced cooling volume (m³)
 
     # identify Direct Mode(whether we are using heat pump to heat/cool)
     heating_direct_mode: bool = False
@@ -651,6 +654,10 @@ class ATESCalculator:
             r.volume_balance_ratio = round((p.cooling_total_produced_volume - p.heating_total_produced_volume) / total_volume,6)
         else:
             r.volume_balance_ratio = 0.0
+
+        # Copy produced volumes from parameters to results
+        r.heating_total_produced_volume = p.heating_total_produced_volume
+        r.cooling_total_produced_volume = p.cooling_total_produced_volume
 
     def get_mode_info(self) -> Dict[str, Any]:
         """

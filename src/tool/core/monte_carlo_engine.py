@@ -280,6 +280,7 @@ class ATESMonteCarloEngine:
             'heating_system_cop': float(result.heating_system_cop),                                              # K39
             'heating_elec_energy_per_thermal': float(result.heating_elec_energy_per_thermal),                    # K40
             'heating_co2_emissions_per_thermal': float(result.heating_co2_emissions_per_thermal),                # K41
+            'heating_total_produced_volume': float(result.heating_total_produced_volume),                        # D21
             
             # COOLING OUTPUTS (N Column) - 30 parameters + 1
             'cooling_total_energy_stored': float(result.cooling_total_energy_stored),                            # N3
@@ -313,6 +314,7 @@ class ATESMonteCarloEngine:
             'cooling_system_cop': float(result.cooling_system_cop),                                              # N39
             'cooling_elec_energy_per_thermal': float(result.cooling_elec_energy_per_thermal),                    # N40
             'cooling_co2_emissions_per_thermal': float(result.cooling_co2_emissions_per_thermal),                # N41
+            'cooling_total_produced_volume': float(result.cooling_total_produced_volume),                        # G21
             
             # derived output
             'heating_direct_mode': bool(getattr(result, 'heating_direct_mode', False)),
@@ -443,6 +445,7 @@ class ATESMonteCarloEngine:
             'heating_annual_elec_energy_J': np.nan,
             'heating_annual_elec_energy_MWhe': np.nan,
             'heating_elec_energy_per_thermal': np.nan,
+            'heating_total_produced_volume': np.nan,
             
             'cooling_total_energy_stored': np.nan,
             'cooling_stored_energy_recovered': np.nan,
@@ -468,6 +471,7 @@ class ATESMonteCarloEngine:
             'cooling_elec_energy_HP': np.nan,
             'cooling_annual_elec_energy_J': np.nan,
             'cooling_annual_elec_energy_MWhe': np.nan,
+            'cooling_total_produced_volume': np.nan,
             'cooling_elec_energy_per_thermal': np.nan
         }
 
