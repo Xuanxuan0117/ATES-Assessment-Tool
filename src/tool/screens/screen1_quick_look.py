@@ -168,9 +168,9 @@ def initialize_default_distributions():
                 }
         
         st.session_state.param_distributions = distributions
-    else:
-        # Update existing distributions with current parameter values
-        sync_all_params_to_distributions()
+    # else:
+    #     # Update existing distributions with current parameter values
+    #     sync_all_params_to_distributions()
 
 # Parameter input sections
 

@@ -234,7 +234,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
         dist_config[key] = value
         from tool.utils.state_management import mark_case_modified
         mark_case_modified()
-    
+
     if dist_type == 'single_value':
         val_key = f"val_{param_name}_v{version}"
         if is_integer_param:

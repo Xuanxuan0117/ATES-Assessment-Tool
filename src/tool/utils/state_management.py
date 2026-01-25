@@ -88,7 +88,7 @@ class ATESAppState:
             '_last_reset_time': None,
             '_navigation_stable': True
         }
-        
+
         # Only initialize keys that don't exist to avoid overwriting existing state
         for key, default_value in defaults.items():
             if key not in st.session_state:
@@ -287,7 +287,8 @@ class ATESAppState:
         return False
     
     def _render_save_section_stable(self, current_name: str):
-        """Render save options
+        """
+        Render save options
         """
         st.sidebar.markdown("**Save Case**")
         
@@ -302,13 +303,13 @@ class ATESAppState:
             help="Enter a name for your case"
         )
         
-        # Save options
-        save_options = st.sidebar.selectbox(
-            "Save Type",
-            ["Parameters Only (Fast)", "Parameters + Results", "Full State (Report)"],
-            key="stable_save_options",
-            help="Choose what to save"
-        )
+        # # Save options
+        # save_options = st.sidebar.selectbox(
+        #     "Save Type",
+        #     ["Parameters Only (Fast)", "Parameters + Results", "Full State (Report)"],
+        #     key="stable_save_options",
+        #     help="Choose what to save"
+        # )
         
         # Check for unsaved parameter changes
         has_unsaved_changes = self._check_unsaved_parameter_changes()
@@ -333,7 +334,7 @@ class ATESAppState:
             if has_unsaved_changes:
                 st.sidebar.error("Please click 'Calculate' before saving to ensure parameters and results are consistent.")
             else:
-                self._save_case_with_name(save_options, new_case_name or current_name)
+                self._save_case_with_name(new_case_name or current_name)
     
     def _render_load_section_stable(self):
         """Render load options - stable version"""
@@ -509,7 +510,7 @@ class ATESAppState:
         """Mark case as modified """
         self._mark_case_modified_safe()
     
-    def _save_case_with_name(self, save_type: str, case_name: str):
+    def _save_case_with_name(self,case_name: str):
         """Save case"""
         try:
             if not case_name or not case_name.strip():
@@ -519,23 +520,24 @@ class ATESAppState:
             clean_case_name = case_name.strip()
             clean_name = self._clean_filename(clean_case_name)
             
-            # Get data based on save type
-            if "Parameters Only" in save_type:
-                state_data = self._get_parameters_only()
-                file_suffix = "params"
-            elif "Parameters + Results" in save_type:
-                state_data = self._get_parameters_and_results()
-                file_suffix = "results"
-            else:  # Full State Report
-                state_data = self._get_full_state()
-                file_suffix = "report"
-            
+            # # Get data based on save type
+            # if "Parameters Only" in save_type:
+            #     state_data = self._get_parameters_only()
+            #     file_suffix = "params"
+            # elif "Parameters + Results" in save_type:
+            #     state_data = self._get_parameters_and_results()
+            #     file_suffix = "results"
+            # else:  # Full State Report
+            #     state_data = self._get_full_state()
+            #     file_suffix = "report"
+
+            # Get parameters data
+            state_data = self._get_parameters_only()
             # Add case metadata
             state_data['case_metadata'] = {
                 'case_name': clean_case_name,
                 'save_time': time.strftime('%Y-%m-%d %H:%M:%S'),
-                'save_type': save_type,
-                'ates_tool_version': '1.0.0'
+                'ates_tool_version': '5.0.0'
             }
             
             # Convert to JSON
@@ -543,7 +545,7 @@ class ATESAppState:
             
             # Generate filename
             timestamp = time.strftime('%Y%m%d_%H%M%S')
-            filename = f"{clean_name}_{file_suffix}_{timestamp}.json"
+            filename = f"{clean_name}_{timestamp}.json"
             size_kb = len(state_json) // 1024
             
             # Download button
@@ -578,7 +580,7 @@ class ATESAppState:
             # Execute complete reset then load
             self._execute_atomic_reset_for_load()
             self._load_state_data(state_data)
-            
+                  
             # Set case information
             st.session_state['case_name'] = case_name
             st.session_state['stable_case_name_input'] = case_name  
@@ -1011,7 +1013,6 @@ class ATESAppState:
 
         from tool.core.ates_calculator import ATESParameters
         ATESParameters.enable_validation()
-        
       
         if 'ates_params' in st.session_state:
             self._sync_params_to_temp_variables()

@@ -10,7 +10,7 @@ An open-source probabilistic assessment tool for Aquifer Thermal Energy Storage 
 - Monte Carlo simulation with multiple distribution types
 - Statistical outputs: mean, standard deviation, percentiles
 - Sensitivity analysis with parameter importance ranking
-- Case saving in three modes: Parameters Only, Parameters + Results, Full State
+- Case saving 
 - Interactive interface built with Streamlit
 
 ---
@@ -67,14 +67,14 @@ source .venv/bin/activate
 
 #### Option 1: Clone from GitHub
 ```bash
-git clone https://github.com/esemsc-yy2923/ates-assessment-tool.git
+git clone https://github.com/Xuanxuan0117/ATES-Assessment-Tool.git
 cd ates-assessment-tool
 pip install -e .
 ```
 
 #### Option 2: Install directly from GitHub
 ```bash
-pip install "git+https://github.com/esemsc-yy2923/ates-assessment-tool.git"
+pip install "git+https://github.com/Xuanxuan0117/ATES-Assessment-Tool.git"
 ```
 
 ---
@@ -99,23 +99,7 @@ python -m tool.launch
 
 ---
 
-## Saving Cases
 
-The tool supports three case formats:
-
-**Parameters Only**
-- Includes ATES parameters and probability distributions only.
-- Use cases: parameter backup, sharing, template creation.
-
-**Parameters + Results**
-- Adds deterministic results.
-- Use cases: validation, documentation, scenario comparison.
-
-**Full State (Report)**
-- Adds complete statistical analysis and sensitivity results.
-- Use cases: comprehensive reports, risk assessment.
-
----
 
 ## Development
 

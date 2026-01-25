@@ -51,7 +51,7 @@ def check_sensitivity_status():
 def main():
     """Main application with bulletproof navigation and state management"""
     app_state = get_app_state()
- 
+
     render_sidebar(app_state)
     
     # Get current page with fallback
@@ -194,7 +194,7 @@ def add_footer():
         st.markdown(f"**Current Case:** {case_name}{modification_status}")
     
     with col2:
-        st.markdown("**Version:** 4.0.0")
+        st.markdown("**Version:** 5.0.0")
     
 
 
