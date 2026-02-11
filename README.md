@@ -36,7 +36,7 @@ For more information on handling sensitive data, please refer to the [Streamlit 
 
 ### Step 0: Install Python (if not already installed)
 
-This tool requires **Python 3.8 or higher**.
+This tool requires **Python 3.11 or higher**.
 
 If you do not already have Python installed, please download it from the official website:
 - [Python Downloads](https://www.python.org/downloads/)

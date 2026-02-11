@@ -1438,7 +1438,7 @@ class ATESVisualizer:
 
     def _plot_percentile_chart(self, percentile_df: pd.DataFrame, selected_percentiles: List[int], group_name: str):
         """
-        Plot percentile chart
+        Plot percentile chart with values normalized to P50
         """
         fig = go.Figure()
         
@@ -1446,7 +1446,19 @@ class ATESVisualizer:
         
         for i, row in percentile_df.iterrows():
             param_name = row['Parameter']
-            y_values = [safe_float(row[col]) for col in percentile_cols if col in row]
+            
+            # Get P50 value for normalization
+            p50_value = safe_float(row.get('P50', 1.0))
+            if p50_value == 0:
+                p50_value = 1.0  # Avoid division by zero
+            
+            # Normalize values by P50
+            y_values = []
+            for col in percentile_cols:
+                if col in row:
+                    raw_value = safe_float(row[col])
+                    normalized_value = raw_value / p50_value
+                    y_values.append(normalized_value)
             
             fig.add_trace(go.Scatter(
                 x=selected_percentiles,
@@ -1457,14 +1469,18 @@ class ATESVisualizer:
                 marker=dict(size=8)
             ))
         
+        # Add horizontal reference line at y=1 (P50 baseline)
+        fig.add_hline(y=1.0, line_dash="dash", line_color="gray", opacity=0.5)
+        
         fig.update_layout(
             title={
-                'text': f"{group_name} - Percentile Analysis",
+                'text': f"{group_name} - Percentile Analysis (Normalised)",
                 'x': 0.5,
+                'xanchor': 'center',
                 'font': dict(color='black')
             },
             xaxis_title="Percentile",
-            yaxis_title="Value",
+            yaxis_title="Normalised Value (PX/P50)",
             height=500,
             hovermode='x unified',
             font=dict(color='black'),
@@ -1493,7 +1509,7 @@ class ATESVisualizer:
 
     def _plot_confidence_intervals(self, ci_df: pd.DataFrame, confidence_level: int, group_name: str):
         """
-        Plot confidence intervals
+        Plot confidence intervals normalized to mean (mean = 1)
         """
         fig = go.Figure()
         
@@ -1503,9 +1519,19 @@ class ATESVisualizer:
             lower_ci = safe_float(row[f'CI Lower ({confidence_level}%)'])
             upper_ci = safe_float(row[f'CI Upper ({confidence_level}%)'])
             
+            # Normalize by mean (so mean becomes 1)
+            if mean_val != 0:
+                normalized_lower = lower_ci / mean_val
+                normalized_upper = upper_ci / mean_val
+                normalized_mean = 1.0
+            else:
+                normalized_lower = lower_ci
+                normalized_upper = upper_ci
+                normalized_mean = mean_val
+            
             fig.add_trace(go.Scatter(
                 x=[param_name, param_name],
-                y=[lower_ci, upper_ci],
+                y=[normalized_lower, normalized_upper],
                 mode='lines',
                 line=dict(width=8, color='black'),
                 showlegend=False,
@@ -1514,23 +1540,26 @@ class ATESVisualizer:
             
             fig.add_trace(go.Scatter(
                 x=[param_name],
-                y=[mean_val],
+                y=[normalized_mean],
                 mode='markers',
                 marker=dict(size=12, color=self.group_colors[group_name]),
                 name=param_name,
                 showlegend=False
             ))
         
+        # Add horizontal reference line at y=1 (mean baseline)
+        fig.add_hline(y=1.0, line_dash="dash", line_color="gray", opacity=0.5)
+        
         fig.update_layout(
             title={
-                'text': f"{group_name} - {confidence_level}% Confidence Intervals",
+                'text': f"{group_name} - {confidence_level}% Confidence Intervals (Normalised)",
                 'x': 0.5,
                 'xanchor': 'center',
                 'font': dict(color='black')
             },
             height=500,
             xaxis_title="Parameters",
-            yaxis_title="Value",
+            yaxis_title="Normalised Value (Value/Mean)",
             font=dict(color='black'),
             plot_bgcolor='white',
             paper_bgcolor='white',
