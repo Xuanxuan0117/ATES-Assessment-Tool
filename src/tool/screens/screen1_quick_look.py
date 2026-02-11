@@ -341,8 +341,6 @@ def render_parameter_section_c():
             tolerance_in_energy_balance = st.number_input(
                 "Energy Balance Tolerance (-)",
                 value=float(st.session_state.ates_params.tolerance_in_energy_balance),
-                min_value=0.05,
-                max_value=0.5,
                 step=0.01,
                 format="%.2f",
                 help="Energy balance tolerance",
