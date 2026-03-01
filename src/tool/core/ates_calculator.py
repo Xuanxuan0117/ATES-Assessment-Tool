@@ -40,7 +40,7 @@ class ATESParameters:
     cooling_number_of_doublets: int = 0               # G15 - nb Cooling number of doublets (-)
     cooling_total_produced_volume: float = 0.0        # G21 - Vp,c Total produced cooling volume (m³)
     cooling_ave_injection_temp: float = 21.0          # G27 - Ti,h Hot borehole(s) injection temperature(°C)
-    cooling_temp_to_building: float = 14.0            # G29 - Tb,c Building cooling temperature (°C)
+    cooling_temp_to_building: float = 12.0            # G29 - Tb,c Building cooling temperature (°C)
 
     # E. Auto-calculated Parameters
     water_volumetric_heat_capacity: float = 0.0       # D6  - cw Water volumetric heat capacity (J/K/m³)
@@ -124,74 +124,85 @@ class ATESParameters:
         """
 
         # A. Basic Physical Parameters 
-        if not (0 <= self.aquifer_temp <= 100):
-            raise ValueError(f"Aquifer temperature must be between 0 and 100 °C. Got {self.aquifer_temp}.")
+        # Aquifer temperature > 0
+        if self.aquifer_temp <= 0:
+            raise ValueError(f"Aquifer temperature must be > 0 °C. Got {self.aquifer_temp}.")
+        
+        # Water density > 0
         if self.water_density <= 0:
             raise ValueError(f"Water density must be positive. Got {self.water_density}.")
+        
+        # Water specific heat capacity > 0
         if self.water_specific_heat_capacity <= 0:
             raise ValueError(f"Water specific heat capacity must be positive. Got {self.water_specific_heat_capacity}.")
+        
+        # Thermal recovery factor 0 <= Rt <= 1
         if not (0 <= self.thermal_recovery_factor <= 1):
             raise ValueError(f"Thermal recovery factor must be between 0 and 1. Got {self.thermal_recovery_factor}.")
 
         # B. System Operational Parameters 
+        # Flow rate > 0
         if self.heating_target_avg_flowrate_pd <= 0:
             raise ValueError(f"Heating target average flowrate per doublet must be positive. Got {self.heating_target_avg_flowrate_pd}.")
         
-         # Heating number of doublets should be integer and non‑negative
+        # Number of doublets >= 1
         if not isinstance(self.heating_number_of_doublets, int):
             raise ValueError(f"Heating number of doublets must be an integer. Got {self.heating_number_of_doublets}.")
-        if self.heating_number_of_doublets < 0:
-            raise ValueError(f"Heating number of doublets cannot be negative. Got {self.heating_number_of_doublets}.")
+        if self.heating_number_of_doublets < 1:
+            raise ValueError(f"Heating number of doublets must be >= 1. Got {self.heating_number_of_doublets}.")
 
-         # Heating and cooling months
-        if not (0 <= self.heating_days <= 365):
-            raise ValueError(f"Heating days must be between 0 and 365. Got {self.heating_days}.")
-        if not (0 <= self.cooling_days <= 365):
-            raise ValueError(f"Cooling months must be between 0 and 365. Got {self.cooling_days}.")
+        # Heating and cooling days >= 0
+        if self.heating_days < 0:
+            raise ValueError(f"Heating days must be >= 0. Got {self.heating_days}.")
+        if self.cooling_days < 0:
+            raise ValueError(f"Cooling days must be >= 0. Got {self.cooling_days}.")
         if self.heating_days + self.cooling_days > 365:
             raise ValueError(f"Sum of heating and cooling days cannot exceed 365. Got {self.heating_days + self.cooling_days}.")
 
         if self.pump_energy_density < 0:
             raise ValueError(f"Pump energy density cannot be negative. Got {self.pump_energy_density}.")
 
-        if not (0 <= self.heating_ave_injection_temp <= 100):
-            raise ValueError(f"Cool well injection temperature must be between 0 and 100 °C. Got {self.heating_ave_injection_temp}.")
-        if not (0 <= self.heating_temp_to_building <= 100):
-            raise ValueError(f"Heating temperature to building must be between 0 and 100 °C. Got {self.heating_temp_to_building}.")
+        # Cool well injection temp <= Taq
+        if self.heating_ave_injection_temp > self.aquifer_temp:
+            raise ValueError(f"Cool well injection temperature must be <= aquifer temperature. Got {self.heating_ave_injection_temp} > {self.aquifer_temp}.")
+        
+        # Building heating temperature >= Taq
+        if self.heating_temp_to_building < self.aquifer_temp:
+            raise ValueError(f"Building heating temperature must be >= aquifer temperature. Got {self.heating_temp_to_building} < {self.aquifer_temp}.")
 
         # C. COP Parameters 
-         # a should be > 0
         if self.cop_param_a < 0:
             raise ValueError(f"COP parameter a should not be negative. Got {self.cop_param_a}.")
-         # b should be > 0
         if self.cop_param_b <= 0:
             raise ValueError(f"COP parameter 'b' must be > 0. Got {self.cop_param_b}.")
-         # c usually should be <= 0, warn if not
         if self.cop_param_c > 0:
             import warnings
             warnings.warn(f"COP parameter 'c' is usually negative (COP decreases with ΔT). Got {self.cop_param_c}.")
-         # d should be >= 0
         if self.cop_param_d < 0:
             raise ValueError(f"COP parameter 'd' must be >= 0. Got {self.cop_param_d}.")
-         # carbon intensity should be >= 0
         if self.carbon_intensity < 0:
             raise ValueError(f"Carbon intensity cannot be negative. Got {self.carbon_intensity}.")
 
         # D. Cooling Side Parameters 
-         #Cooling target average flowrate per doublet should be >= 0
         if self.cooling_target_avg_flowrate_pd < 0:
             raise ValueError(f"Cooling target average flowrate per doublet cannot be negative. Got {self.cooling_target_avg_flowrate_pd}.")
-         # Cooling doublets should also be integer and >= 0
+        
         if not isinstance(self.cooling_number_of_doublets, int):
             raise ValueError(f"Cooling number of doublets must be an integer. Got {self.cooling_number_of_doublets}.")
         if self.cooling_number_of_doublets < 0:
             raise ValueError(f"Cooling number of doublets cannot be negative. Got {self.cooling_number_of_doublets}.")
 
+        # Warm well injection temp >= Taq
+        if self.cooling_ave_injection_temp < self.aquifer_temp:
+            raise ValueError(f"Warm well injection temperature must be >= aquifer temperature. Got {self.cooling_ave_injection_temp} < {self.aquifer_temp}.")
+        
+        # Building cooling temperature <= Taq
+        if self.cooling_temp_to_building > self.aquifer_temp:
+            raise ValueError(f"Building cooling temperature must be <= aquifer temperature. Got {self.cooling_temp_to_building} > {self.aquifer_temp}.")
+
         # E. Derived parameters 
-         # validate heating and cooling month based on the number of shoulder months
         if self.shoulder_days < 0:
             raise ValueError(f"Computed shoulder days is negative ({self.shoulder_days}). Check heating and cooling days.")  
-         # total produced volume should be >= 0
         if self.heating_total_produced_volume < 0:
             raise ValueError(f"Total produced heating volume cannot be negative. Got {self.heating_total_produced_volume}.")
         if self.cooling_total_produced_volume < 0:

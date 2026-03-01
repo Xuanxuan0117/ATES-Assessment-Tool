@@ -187,8 +187,7 @@ def render_parameter_section_a():
             aquifer_temp = st.number_input(
                 "Aquifer Temperature (°C)",
                 value=float(st.session_state.ates_params.aquifer_temp),
-                min_value=5.0,
-                max_value=25.0,
+                min_value=0.01,
                 step=0.1,
                 format="%.2f",
                 help="Aquifer temperature",
@@ -198,8 +197,7 @@ def render_parameter_section_a():
             water_density = st.number_input(
                 "Water Density (kg/m³)",
                 value=float(st.session_state.ates_params.water_density),
-                min_value=995.0,
-                max_value=1005.0,
+                min_value=0.01,
                 step=0.1,
                 format="%.2f",
                 help="Length of the cooling season",
@@ -210,8 +208,7 @@ def render_parameter_section_a():
             water_specific_heat_capacity = st.number_input(
                 "Water Specific Heat Capacity (J/kg/K)",
                 value=float(st.session_state.ates_params.water_specific_heat_capacity),
-                min_value=4000.0,
-                max_value=4300.0,
+                min_value=0.01,
                 step=1.0,
                 format="%.2f",
                 help="Water specific heat capacity",
@@ -247,8 +244,7 @@ def render_parameter_section_b():
             heating_temp_to_building = st.number_input(
                 "Building Heating Temperature (°C)",
                 value=float(st.session_state.ates_params.heating_temp_to_building),
-                min_value=40.0,
-                max_value=80.0,
+                min_value=0.0,
                 step=1.0,
                 format="%.2f",
                 help="Building heating temperature",
@@ -271,7 +267,6 @@ def render_parameter_section_b():
                 "Building Cooling Temperature (°C)",
                 value=float(st.session_state.ates_params.cooling_temp_to_building),
                 min_value=0.0,
-                max_value=100.0,
                 step=0.1,
                 format="%.2f",
                 help="Building cooling temperature",
@@ -297,8 +292,7 @@ def render_parameter_section_c():
             heating_target_avg_flowrate_pd = st.number_input(
                 "Target Flow Rate Heating (m³/hr)",
                 value=float(st.session_state.ates_params.heating_target_avg_flowrate_pd),
-                min_value=10.0,
-                max_value=200.0,
+                min_value=0.01,
                 step=1.0,
                 format="%.2f",
                 help="Target flow rate for heating per borehole",
@@ -309,7 +303,6 @@ def render_parameter_section_c():
                 "Number of Doublets",
                 value=int(st.session_state.ates_params.heating_number_of_doublets),
                 min_value=1,
-                max_value=100,
                 step=1,
                 help="Number of well doublets",
                 key=f"heating_number_of_doublets_v{v}"
@@ -318,8 +311,7 @@ def render_parameter_section_c():
             heating_ave_injection_temp = st.number_input(
                 "Cool well injection temperature (°C)",
                 value=float(st.session_state.ates_params.heating_ave_injection_temp),
-                min_value=5.0,
-                max_value=15.0,
+                min_value=0.0,
                 step=0.1,
                 format="%.2f",
                 help="Cool well injection temperature (< Aquifer Temperature)",
@@ -330,7 +322,7 @@ def render_parameter_section_c():
             thermal_recovery_factor = st.number_input(
                 "Thermal Recovery Factor (-)",
                 value=float(st.session_state.ates_params.thermal_recovery_factor),
-                min_value=0.1,
+                min_value=0.0,
                 max_value=1.0,
                 step=0.01,
                 format="%.2f",
@@ -341,6 +333,7 @@ def render_parameter_section_c():
             tolerance_in_energy_balance = st.number_input(
                 "Energy Balance Tolerance (-)",
                 value=float(st.session_state.ates_params.tolerance_in_energy_balance),
+                min_value=0.0,
                 step=0.01,
                 format="%.2f",
                 help="Energy balance tolerance",
@@ -350,8 +343,7 @@ def render_parameter_section_c():
             cooling_ave_injection_temp = st.number_input(
                 "Warm well injection temperature (°C)",
                 value=float(st.session_state.ates_params.cooling_ave_injection_temp),
-                min_value=15.0,
-                max_value=35.0,
+                min_value=0.0,
                 step=0.1,
                 format="%.2f",
                 help="Warm well injection temperature (> Aquifer Temperature)",
@@ -379,8 +371,7 @@ def render_parameter_section_d():
             cop_param_a = st.number_input(
                 "COP Parameter A (-)",
                 value=float(st.session_state.ates_params.cop_param_a),
-                min_value=50.0,
-                max_value=200.0,
+                min_value=0.0,
                 step=1.0,
                 format="%.2f",
                 help="COP model parameter A",
@@ -390,8 +381,6 @@ def render_parameter_section_d():
             cop_param_c = st.number_input(
                 "COP Parameter C (-)",
                 value=float(st.session_state.ates_params.cop_param_c),
-                min_value=-0.2,
-                max_value=0.2,
                 step=0.01,
                 format="%.2f",
                 help="COP model parameter C",
@@ -401,8 +390,7 @@ def render_parameter_section_d():
             pump_energy_density = st.number_input(
                 "Hydraulic Pump Energy Density (kJ/m³)",
                 value=float(st.session_state.ates_params.pump_energy_density),
-                min_value=200.0,
-                max_value=1500.0,
+                min_value=0.0,
                 step=10.0,
                 format="%.2f",
                 help="Hydraulic pump energy density",
@@ -413,8 +401,7 @@ def render_parameter_section_d():
             cop_param_b = st.number_input(
                 "COP Parameter B (-)",
                 value=float(st.session_state.ates_params.cop_param_b),
-                min_value=0.5,
-                max_value=3.0,
+                min_value=0.01,
                 step=0.1,
                 format="%.2f",
                 help="COP model parameter B (must be positive)",
@@ -424,8 +411,7 @@ def render_parameter_section_d():
             cop_param_d = st.number_input(
                 "COP Parameter D (-)",
                 value=float(st.session_state.ates_params.cop_param_d),
-                min_value=1.0,
-                max_value=15.0,
+                min_value=0.0,
                 step=0.1,
                 format="%.2f",
                 help="COP model parameter D",
@@ -436,7 +422,6 @@ def render_parameter_section_d():
                 "Carbon Intensity (gCO₂/kWh)",
                 value=float(st.session_state.ates_params.carbon_intensity),
                 min_value=0.0,
-                max_value=1000.0,
                 step=10.0,
                 format="%.2f",
                 help="Grid carbon intensity",
