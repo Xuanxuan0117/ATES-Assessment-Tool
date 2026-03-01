@@ -536,6 +536,13 @@ def validate_parameters():
     
     if params.cooling_ave_injection_temp <= params.aquifer_temp:
         errors.append("Warm well injection temperature must be greater than aquifer temperature")
+
+    
+    if params.heating_temp_to_building < params.aquifer_temp:
+        errors.append(f"Building heating temperature ({params.heating_temp_to_building:.1f}°C) must be >= aquifer temperature ({params.aquifer_temp:.1f}°C)")
+    
+    if params.cooling_temp_to_building > params.aquifer_temp:
+        errors.append(f"Building cooling temperature ({params.cooling_temp_to_building:.1f}°C) must be <= aquifer temperature ({params.aquifer_temp:.1f}°C)")
     
     total_days = params.heating_days + params.cooling_days
     if total_days > 365:
