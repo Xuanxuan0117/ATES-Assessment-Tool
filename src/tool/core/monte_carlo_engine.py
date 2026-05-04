@@ -190,7 +190,10 @@ class ATESMonteCarloEngine:
             cop_param_d=self.base_parameters.cop_param_d,
             carbon_intensity=self.base_parameters.carbon_intensity,
             cooling_ave_injection_temp=self.base_parameters.cooling_ave_injection_temp,
-            cooling_temp_to_building=self.base_parameters.cooling_temp_to_building
+            cooling_temp_to_building=self.base_parameters.cooling_temp_to_building,
+            tolerance_in_thermal_recovery=self.base_parameters.tolerance_in_thermal_recovery,
+            use_volume_balance=self.base_parameters.use_volume_balance,
+            tolerance_in_volume_balance=self.base_parameters.tolerance_in_volume_balance,
         )
         # override the copied parameter with the iteration's sampled values where applicable
         for param_name, value in parameter_row.items():
@@ -475,30 +478,41 @@ class ATESMonteCarloEngine:
             'cooling_elec_energy_per_thermal': np.nan
         }
 
+    def _check_eq31(self, params: ATESParameters, result: ATESResults) -> bool:
+        """Check Eq31 physical constraint: Ti,c <= Tp,c <= Taq <= Tp,h <= Ti,h"""
+        return (
+            params.heating_ave_injection_temp <= result.cooling_ave_production_temp <=
+            params.aquifer_temp <= result.heating_ave_production_temp <=
+            params.cooling_ave_injection_temp
+         )
 
     def _run_sequential_calculations(self, parameter_samples: pd.DataFrame, 
-                                   progress_callback: Optional[Callable[[int, int], None]] = None) -> pd.DataFrame:
+                               progress_callback: Optional[Callable[[int, int], None]] = None) -> pd.DataFrame:
         """
         Run calculations sequentially
         """
-        # initialize a list to storage the output dict of every sample
         results: List[Dict[str, Any]] = []
         
         for i, (_, row) in enumerate(parameter_samples.iterrows()):
             params = self._create_parameter_instance(row)
-            # if success, put into calculator; if failure, put into error result
             try:
                 calculator = ATESCalculator(params)
                 result = calculator.calculate()
                 result_dict = self._extract_results(result, i)
-                results.append(result_dict)
+                
+                # Eq31 check: Ti,c <= Tp,c <= Taq <= Tp,h <= Ti,h
+                if not self._check_eq31(params, result):
+                    result_dict['success'] = False
+                    result_dict['rejection_reason'] = 'non_physical_eq31'
+                    
             except Exception as e:
                 result_dict = self._create_error_result(i, str(e))
-                results.append(result_dict)
-            # recording the progress
+            
+            results.append(result_dict)
+            
             if progress_callback:
                 progress_callback(i + 1, self.config.iterations)
-        # put all rounds results in to a df
+        
         return pd.DataFrame(results)
     
     def _process_chunk(self, chunk: pd.DataFrame, start_index: int) -> List[Dict[str, Any]]:
@@ -515,8 +529,13 @@ class ATESMonteCarloEngine:
             try:
                 calculator = ATESCalculator(params)
                 result = calculator.calculate()
-                # extract and flatten outputs, using global iteration index
                 result_dict = self._extract_results(result, start_index + i)
+
+                # Eq31 check
+                if not self._check_eq31(params, result):
+                    result_dict['success'] = False
+                    result_dict['rejection_reason'] = 'non_physical_eq31'
+
                 chunk_results.append(result_dict)
             except Exception as e:
                 result_dict = self._create_error_result(start_index + i, str(e))
@@ -576,8 +595,8 @@ class ATESMonteCarloEngine:
             
 
     def run_simulation(self, parameter_distributions: Dict[str, Dict[str, Any]], 
-                    progress_callback: Optional[Callable[[int, int], None]] = None) -> pd.DataFrame:
-        
+                progress_callback: Optional[Callable[[int, int], None]] = None) -> pd.DataFrame:
+    
         ATESParameters.disable_validation()
         
         try:
@@ -592,11 +611,17 @@ class ATESMonteCarloEngine:
             else:
                 results = self._run_sequential_calculations(parameter_samples, progress_callback)
             
+            # record acceptance rate
+            total = len(results)
+            successful = int(results['success'].sum())
+            self.acceptance_rate = successful / total if total > 0 else 0
+            print(f"Acceptance rate: {successful}/{total} = {self.acceptance_rate:.1%}")
+            
             self.results = results
             return results
             
         finally:
-            ATESParameters.enable_validation()
+            ATESParameters.enable_validation()  
     
     def calculate_statistics(self) -> Dict[str, pd.DataFrame]:
         """

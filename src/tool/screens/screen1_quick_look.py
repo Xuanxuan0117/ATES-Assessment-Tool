@@ -39,6 +39,9 @@ def update_all_parameters_from_temp():
         ('water_density', '_temp_water_density'),
         ('water_specific_heat_capacity', '_temp_water_specific_heat_capacity'),
         ('thermal_recovery_factor', '_temp_thermal_recovery_factor'),
+        ('tolerance_in_thermal_recovery', '_temp_tolerance_in_thermal_recovery'),
+        ('use_volume_balance', '_temp_use_volume_balance'),
+        ('tolerance_in_volume_balance', '_temp_tolerance_in_volume_balance'),
         
         # B. System Operational Parameters
         ('heating_target_avg_flowrate_pd', '_temp_heating_target_avg_flowrate_pd'),
@@ -74,6 +77,10 @@ def update_all_parameters_from_temp():
             if param_name == 'heating_number_of_doublets':
                 if old_value != new_value:
                     setattr(st.session_state.ates_params, param_name, new_value)
+                    has_changes = True
+            elif param_name == 'use_volume_balance':     
+                if old_value != new_value:
+                    setattr(st.session_state.ates_params, param_name, bool(new_value))
                     has_changes = True
             else:
                 if abs(old_value - new_value) > 1e-9:
@@ -339,7 +346,36 @@ def render_parameter_section_c():
                 help="Energy balance tolerance",
                 key=f"tolerance_in_energy_balance_v{v}"
             )
-            
+
+            tolerance_in_thermal_recovery = st.number_input(
+                "Thermal Recovery Tolerance εRT (-)",
+                value=float(st.session_state.ates_params.tolerance_in_thermal_recovery),
+                min_value=-1.0,
+                max_value=1.0,
+                step=0.01,
+                format="%.3f",
+                help="Difference between heating and cooling thermal recovery factors",
+                key=f"tolerance_in_thermal_recovery_v{v}"
+            )
+
+            use_volume_balance = st.checkbox(
+                "Use Volume Balance for Cooling Flow Rate",
+                value=bool(st.session_state.ates_params.use_volume_balance),
+                help="If checked, uses volume balance (Eq38); otherwise uses energy balance (Eq37)",
+                key=f"use_volume_balance_v{v}"
+            )
+
+            if use_volume_balance:
+                tolerance_in_volume_balance = st.number_input(
+                    "Volume Balance Tolerance εVBR (-)",
+                    value=float(st.session_state.ates_params.tolerance_in_volume_balance),
+                    step=0.01,
+                    format="%.3f",
+                    key=f"tolerance_in_volume_balance_v{v}"
+                )
+            else:
+                tolerance_in_volume_balance = st.session_state.ates_params.tolerance_in_volume_balance
+                
             cooling_ave_injection_temp = st.number_input(
                 "Warm well injection temperature (°C)",
                 value=float(st.session_state.ates_params.cooling_ave_injection_temp),
@@ -356,6 +392,9 @@ def render_parameter_section_c():
         st.session_state['_temp_tolerance_in_energy_balance'] = tolerance_in_energy_balance
         st.session_state['_temp_heating_ave_injection_temp'] = heating_ave_injection_temp
         st.session_state['_temp_cooling_ave_injection_temp'] = cooling_ave_injection_temp
+        st.session_state['_temp_tolerance_in_thermal_recovery'] = tolerance_in_thermal_recovery
+        st.session_state['_temp_use_volume_balance'] = use_volume_balance
+        st.session_state['_temp_tolerance_in_volume_balance'] = tolerance_in_volume_balance
 
 
 def render_parameter_section_d():
@@ -500,6 +539,9 @@ def initialize_temp_variables_from_params():
     st.session_state['_temp_water_density'] = params.water_density
     st.session_state['_temp_water_specific_heat_capacity'] = params.water_specific_heat_capacity
     st.session_state['_temp_thermal_recovery_factor'] = params.thermal_recovery_factor
+    st.session_state['_temp_tolerance_in_thermal_recovery'] = params.tolerance_in_thermal_recovery
+    st.session_state['_temp_use_volume_balance'] = params.use_volume_balance
+    st.session_state['_temp_tolerance_in_volume_balance'] = params.tolerance_in_volume_balance
     
     # B. System Operational Parameters
     st.session_state['_temp_heating_target_avg_flowrate_pd'] = params.heating_target_avg_flowrate_pd

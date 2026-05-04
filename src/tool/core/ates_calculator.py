@@ -17,6 +17,9 @@ class ATESParameters:
     water_density: float = 1000.0                     # D4 - rho_w Water density (kg/m³)
     water_specific_heat_capacity: float = 4184.0       # D5 - cp Water specific heat capacity (J/K/kg)
     thermal_recovery_factor: float = 0.4              # D8 - RT Thermal recovery factor (-)
+    tolerance_in_thermal_recovery: float = 0.0        # εRT
+    use_volume_balance: bool = False                  # Energy (0) or volume balance (1) to determine cooling rate
+    tolerance_in_volume_balance: float = 0.0          # εVBR
 
     # B. System Operational Parameters
     heating_target_avg_flowrate_pd: float = 60.0      # D10 - qb,h Target average flow rate per doublet for heating (m³/hr)
@@ -44,8 +47,9 @@ class ATESParameters:
 
     # E. Auto-calculated Parameters
     water_volumetric_heat_capacity: float = 0.0       # D6  - cw Water volumetric heat capacity (J/K/m³)
-    shoulder_days: float = 0.0                      # D19 - (-) Number of months which not heating and cooling (-)
+    shoulder_days: float = 0.0                        # D19 - (-) Number of months which not heating and cooling (-)
     heating_total_produced_volume: float = 0.0        # D21 - Vp,h Total produced heating volume(m³)
+    thermal_recovery_factor_c: float = 0.0            # RT,c 自动计算
     
     # turn on for direct calculation, off for monte-carlo
     _validation_enabled: bool = True
@@ -60,6 +64,8 @@ class ATESParameters:
 
           # D19 = 12-D17-D18
          self.shoulder_days = 365 - self.heating_days - self.cooling_days
+
+         self.thermal_recovery_factor_c = (1 + self.tolerance_in_thermal_recovery) * self.thermal_recovery_factor
 
          # G-column auto-calculations
           # G10 calculation(calculate cooling target average flowrate per doublet)
@@ -86,22 +92,29 @@ class ATESParameters:
         cls._validation_enabled = True
 
     def calculate_g10(self):
-        """
-        Calculates G10 - Cooling flow rate per doublet.
-        Formula: (1+D11)*D10*[(D3-D27)*D17-D8*(D27-D3)*D17]/[(D3-G27)*D18-D8*(G27-D3)*D18]
-        """
-        numerator = ((self.aquifer_temp - self.heating_ave_injection_temp) * self.heating_days -
-                    self.thermal_recovery_factor * (self.heating_ave_injection_temp - self.aquifer_temp) * self.heating_days)
+        if self.use_volume_balance:
+            # Eq38 - Volume balance
+            if self.cooling_days <= 0:
+                raise ValueError("Cooling days must be > 0 for volume balance calculation.")
+            self.cooling_target_avg_flowrate_pd = (
+                (1 + self.tolerance_in_volume_balance) *
+                self.heating_target_avg_flowrate_pd *
+                self.heating_days / self.cooling_days
+            )
+        else:
+            # Eq37 - Energy balance
+            numerator = ((self.aquifer_temp - self.heating_ave_injection_temp) * self.heating_days -
+                        self.thermal_recovery_factor * (self.heating_ave_injection_temp - self.aquifer_temp) * self.heating_days)
 
-        denominator = ((self.aquifer_temp - self.cooling_ave_injection_temp) * self.cooling_days -
-                      self.thermal_recovery_factor * (self.cooling_ave_injection_temp - self.aquifer_temp) * self.cooling_days)
+            denominator = ((self.aquifer_temp - self.cooling_ave_injection_temp) * self.cooling_days -
+                        self.thermal_recovery_factor * (self.cooling_ave_injection_temp - self.aquifer_temp) * self.cooling_days)
 
-        if abs(denominator) < 1e-10:
-            raise ValueError("Denominator for G10 calculation is close to zero. Please check temperature parameters.")
+            if abs(denominator) < 1e-10:
+                raise ValueError("Denominator for G10 calculation is close to zero. Please check temperature parameters.")
 
-        self.cooling_target_avg_flowrate_pd = -((1 + self.tolerance_in_energy_balance) *
-                                           self.heating_target_avg_flowrate_pd *
-                                           (numerator / denominator))
+            self.cooling_target_avg_flowrate_pd = -((1 + self.tolerance_in_energy_balance) *
+                                            self.heating_target_avg_flowrate_pd *
+                                            (numerator / denominator))
         
     def calculate_volumes(self):
         """
@@ -139,6 +152,9 @@ class ATESParameters:
         # Thermal recovery factor 0 <= Rt <= 1
         if not (0 <= self.thermal_recovery_factor <= 1):
             raise ValueError(f"Thermal recovery factor must be between 0 and 1. Got {self.thermal_recovery_factor}.")
+        
+        if not (0 <= self.thermal_recovery_factor_c <= 1):
+            raise ValueError(f"RT,c = {self.thermal_recovery_factor_c:.3f} must be between 0 and 1.")
 
         # B. System Operational Parameters 
         # Flow rate > 0
@@ -344,16 +360,21 @@ class ATESCalculator:
 
         # K8 = K6/60/60
         r.heating_total_flow_rate_m3s = r.heating_total_flow_rate_m3hr / 3600
-        # calulate physical heating temperatur and decide based on different mode
-        calculated_physical_heating_temp = (p.aquifer_temp +
-                                p.thermal_recovery_factor *
-                                (p.cooling_ave_injection_temp - p.aquifer_temp))
 
-        # K10 = calculated_physical_temp
-        r.heating_ave_production_temp = calculated_physical_heating_temp
-        # check if production temperature meets building requirement during heating
-        # Direct mode when Tp >= Tb,h (production temp >= building requirement)
-        calculated_physical_heating_temp = r.heating_ave_production_temp  
+        # K19 = (D6*D21*(D3-D27))+(D8*D6*G21*(G27-D3))
+        r.heating_annual_energy_aquifer_J = ((p.water_volumetric_heat_capacity *
+                                        p.heating_total_produced_volume *
+                                        (p.aquifer_temp - p.heating_ave_injection_temp)) +
+                                        (p.thermal_recovery_factor *
+                                        p.water_volumetric_heat_capacity *
+                                        p.cooling_total_produced_volume *
+                                        (p.cooling_ave_injection_temp - p.aquifer_temp)))
+        
+        # K10
+        r.heating_ave_production_temp = (r.heating_annual_energy_aquifer_J / 
+            (p.water_volumetric_heat_capacity * p.heating_total_produced_volume) + 
+            p.heating_ave_injection_temp)
+        calculated_physical_heating_temp = r.heating_ave_production_temp 
         if calculated_physical_heating_temp >= p.heating_temp_to_building:
             # Direct heating mode (production temperature is sufficient)
             r.heating_direct_mode = True
@@ -393,14 +414,6 @@ class ATESCalculator:
             else:
                 r.heating_ehp = r.heating_heat_pump_COP / (r.heating_heat_pump_COP - 1)
 
-        # K19 = (D6*D21*(D3-D27))+(D8*D6*G21*(G27-D3))
-        r.heating_annual_energy_aquifer_J = ((p.water_volumetric_heat_capacity *
-                                        p.heating_total_produced_volume *
-                                        (p.aquifer_temp - p.heating_ave_injection_temp)) +
-                                        (p.thermal_recovery_factor *
-                                        p.water_volumetric_heat_capacity *
-                                        p.cooling_total_produced_volume *
-                                        (p.cooling_ave_injection_temp - p.aquifer_temp)))
 
         # K16 = K19/D17/31/24/60/60
         r.heating_ave_power_to_HX_W = (r.heating_annual_energy_aquifer_J /p.heating_days/ 24 / 3600)
@@ -506,11 +519,15 @@ class ATESCalculator:
         # N8 = N6/60/60
         r.cooling_total_flow_rate_m3s = r.cooling_total_flow_rate_m3hr / 3600
 
-    # calculate the groundwater temperature
-        calculated_physical_cooling_temp = (
-            p.aquifer_temp +
-            p.thermal_recovery_factor * (p.heating_ave_injection_temp - p.aquifer_temp)
-        )
+        # N19 = (D6*G21*(D3-G27))+(D8*D6*D21*(D27-D3))
+        r.cooling_annual_energy_aquifer_J = (p.water_volumetric_heat_capacity * p.cooling_total_produced_volume* (p.cooling_ave_injection_temp - p.aquifer_temp)
+                                             + p.thermal_recovery_factor_c * p.water_volumetric_heat_capacity * p.heating_total_produced_volume *(p.aquifer_temp 
+                                                                                                                                       - p.heating_ave_injection_temp))
+
+
+        # N10 = groundwater temperature
+        r.cooling_ave_production_temp = (r.cooling_annual_energy_aquifer_J /(p.water_volumetric_heat_capacity * p.cooling_total_produced_volume) + p.cooling_ave_injection_temp)
+        calculated_physical_cooling_temp = r.cooling_ave_production_temp
 
         # decide whether we are using direct cooling mode
         if calculated_physical_cooling_temp <= p.cooling_temp_to_building:
@@ -535,8 +552,6 @@ class ATESCalculator:
             # Need to use heat pump to cool down the water
             r.cooling_direct_mode = False
             
-            # N10 = groundwater temperature
-            r.cooling_ave_production_temp = calculated_physical_cooling_temp
 
             # N11 = G27 - N10 (for heat exchanger)
             r.cooling_ave_temp_change_across_HX = p.cooling_ave_injection_temp - r.cooling_ave_production_temp
@@ -563,11 +578,7 @@ class ATESCalculator:
             else:
                 r.cooling_ehp = r.cooling_heat_pump_COP / (r.cooling_heat_pump_COP - 1)
 
-        # N19 = (D6*G21*(D3-G27))+(D8*D6*D21*(D27-D3))
-        r.cooling_annual_energy_aquifer_J = (p.water_volumetric_heat_capacity * p.cooling_total_produced_volume* (p.cooling_ave_injection_temp - p.aquifer_temp)
-                                             + p.thermal_recovery_factor * p.water_volumetric_heat_capacity * p.heating_total_produced_volume *(p.aquifer_temp 
-                                                                                                                                       - p.heating_ave_injection_temp))
-
+        
 
         # N16 = N19/D18/31/24/60/60
         r.cooling_ave_power_to_HX_W = r.cooling_annual_energy_aquifer_J / p.cooling_days / 24 / 3600
