@@ -317,6 +317,8 @@ def render_parameter_section_c():
                 help="Cool well injection temperature (< Aquifer Temperature)",
                 key=f"heating_ave_injection_temp_v{v}"
             )
+            if heating_ave_injection_temp >= st.session_state.ates_params.aquifer_temp:
+                st.warning("⚠️ Cool well injection temperature must be < aquifer temperature")
         
         with col2:
             thermal_recovery_factor = st.number_input(
@@ -333,7 +335,6 @@ def render_parameter_section_c():
             tolerance_in_energy_balance = st.number_input(
                 "Energy Balance Tolerance (-)",
                 value=float(st.session_state.ates_params.tolerance_in_energy_balance),
-                min_value=0.0,
                 step=0.01,
                 format="%.2f",
                 help="Energy balance tolerance",
@@ -349,6 +350,8 @@ def render_parameter_section_c():
                 help="Warm well injection temperature (> Aquifer Temperature)",
                 key=f"cooling_ave_injection_temp_v{v}"
             )
+            if cooling_ave_injection_temp <= st.session_state.ates_params.aquifer_temp:
+                st.warning("⚠️ Warm well injection temperature must be > aquifer temperature")
         
         st.session_state['_temp_heating_target_avg_flowrate_pd'] = heating_target_avg_flowrate_pd
         st.session_state['_temp_heating_number_of_doublets'] = heating_number_of_doublets
@@ -548,7 +551,7 @@ def validate_parameters():
     if total_days > 365:
         errors.append(f"The sum of heating and cooling days cannot exceed 365 (Current: {total_days:.1f})")
     
-    if params.thermal_recovery_factor <= 0 or params.thermal_recovery_factor > 1:
+    if params.thermal_recovery_factor < 0 or params.thermal_recovery_factor > 1:
         errors.append("Thermal recovery factor must be between 0 and 1")
     
     if params.cop_param_b <= 0:
