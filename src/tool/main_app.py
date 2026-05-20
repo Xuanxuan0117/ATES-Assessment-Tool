@@ -15,7 +15,7 @@ from tool.screens.screen5_sensitivity import main as screen5_main
 from tool.utils.state_management import get_app_state
 
 st.set_page_config(
-    page_title="Imperial ATES Assessment Tool",
+    page_title="GWHC and ATES Systems: the Imperial College Rapid Assessment Tooll",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -89,8 +89,7 @@ def main():
 
 def render_sidebar(app_state):
     """Render sidebar with bulletproof navigation"""
-    st.sidebar.title("Imperial ATES Assessment Tool")
-    st.sidebar.markdown("*Imperial Aquifer Thermal Energy Storage System*")
+    st.sidebar.title("GWHC and ATES Systems: the Imperial College Rapid Assessment Tool")
     st.sidebar.markdown("---")
     
     # navigation
