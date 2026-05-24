@@ -545,6 +545,10 @@ class ATESVisualizer:
                 
                 data = raw_data.dropna()
                 data = data[np.isfinite(data)]
+
+                if data.max() == data.min():
+                    st.caption(f"{group_params.get(param, param)}: constant value ({data.iloc[0]:.4f})")
+                    return
                 
                 if len(data) == 0:
                     st.warning(f"No finite data available for {group_params.get(param, param)}")
@@ -564,7 +568,7 @@ class ATESVisualizer:
                     tick_format = '.2e'
                 else:
                     tick_format = '.2f'
-                
+
                 if show_dual_axis:
                     fig = make_subplots(specs=[[{"secondary_y": True}]])
                     
@@ -820,7 +824,8 @@ class ATESVisualizer:
                             
                             infinite_count = len(raw_data) - len(raw_data.dropna()) - len(data)
                             
-                            # 动态选择 tickformat
+                            
+                        
                             data_range = data.max() - data.min()
                             if data_range < 0.01:
                                 tick_format = '.6f'
@@ -830,7 +835,11 @@ class ATESVisualizer:
                                 tick_format = '.2e'
                             else:
                                 tick_format = '.2f'
-                            
+                                
+                            if data.max() == data.min():
+                                with plot_cols[j]:
+                                    st.caption(f"{group_params.get(param, param)}: constant value ({data.iloc[0]:.4f})")
+                                continue
                             if show_dual_axis:
                                 fig = make_subplots(specs=[[{"secondary_y": True}]])
                                 
