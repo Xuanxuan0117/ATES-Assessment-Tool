@@ -59,6 +59,22 @@ def safe_int(value: Any) -> int:
         return int(float(value))
     except (ValueError, TypeError, AttributeError):
         return 0
+    
+def _generate_prior_samples(dist_config: dict, n_samples: int = 10000):
+    dist_type = dist_config.get('type')
+    try:
+        rng = np.random.default_rng(seed=42)
+        if dist_type == 'range':
+            return rng.uniform(dist_config['min'], dist_config['max'], n_samples)
+        elif dist_type == 'triangular':
+            return rng.triangular(dist_config['min'], dist_config['most_likely'], dist_config['max'], n_samples)
+        elif dist_type == 'normal':
+            return rng.normal(dist_config['mean'], dist_config['std'], n_samples)
+        elif dist_type == 'lognormal':
+            return rng.lognormal(dist_config['mean'], dist_config['std'], n_samples)
+    except:
+        return None
+    return None
 
 class ATESVisualizer:
     """
@@ -180,6 +196,22 @@ class ATESVisualizer:
                 'volume_balance_ratio': 'Volume Balance Ratio (VBR)',
                 'heating_total_produced_volume': 'Heating Produced Volume (m³)',
                 'cooling_total_produced_volume': 'Cooling Produced Volume (m³)'
+            },
+
+            'Input Parameters - Prior & Posterior': {
+                'input_aquifer_temp': 'Aquifer Temperature (°C)',
+                'input_thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+                'input_heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
+                'input_tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
+                'input_tolerance_in_thermal_recovery': 'Thermal Recovery Tolerance εRT (-)',
+                'input_heating_days': 'Heating Days',
+                'input_cooling_days': 'Cooling Days',
+                'input_heating_ave_injection_temp': 'Cool Well Injection Temperature (°C)',
+                'input_cooling_ave_injection_temp': 'Warm Well Injection Temperature (°C)',
+                'input_heating_temp_to_building': 'Building Heating Temperature (°C)',
+                'input_cooling_temp_to_building': 'Building Cooling Temperature (°C)',
+                'input_pump_energy_density': 'Pump Energy Density (kJ/m³)',
+                'input_carbon_intensity': 'Carbon Intensity (gCO₂/kWh)',
             }
         }
         
@@ -196,7 +228,8 @@ class ATESVisualizer:
             'Cooling System - Power': '#0D6EFD',
             'Cooling System - Heat Pump & Electrical': '#0D6EFD',
             'System Balance & Groundwater Volumes': '#7F7F7F',
-            'System Balance & Overall': '#7F7F7F'
+            'System Balance & Overall': '#7F7F7F',
+            'Input Parameters - Prior & Posterior': '#2CA02C'
         }
     
     def render_distribution_plots(self):
@@ -721,6 +754,22 @@ class ATESVisualizer:
                 
                 mean_val = safe_float(data.mean())
                 median_val = safe_float(data.median())
+
+            
+                if 'Input Parameters' in group_name:
+                    original_param = param.replace('input_', '')
+                    param_dist = st.session_state.get('param_distributions', {}).get(original_param)
+                    if param_dist and param_dist.get('type') != 'single_value':
+                        prior_samples = _generate_prior_samples(param_dist)
+                        if prior_samples is not None:
+                            prior_counts, _ = np.histogram(prior_samples, bins=bin_edges)
+                            prior_probability = prior_counts / len(prior_samples)
+                            fig.add_trace(go.Scatter(
+                                x=bin_centers, y=prior_probability,
+                                mode='lines', name='Prior Distribution',
+                                line=dict(color='blue', width=2),
+                                yaxis='y'
+                            ))
                 
                 fig.add_vline(x=mean_val, line_dash="dash", line_color="black", 
                             annotation_text=f"Mean: {mean_val:.3f}",
@@ -966,6 +1015,22 @@ class ATESVisualizer:
                                 )
                             
                             mean_val = safe_float(data.mean())
+
+                            
+                            if 'Input Parameters' in group_name:
+                                original_param = param.replace('input_', '')
+                                param_dist = st.session_state.get('param_distributions', {}).get(original_param)
+                                if param_dist and param_dist.get('type') != 'single_value':
+                                    prior_samples = _generate_prior_samples(param_dist)
+                                    if prior_samples is not None:
+                                        prior_counts, _ = np.histogram(prior_samples, bins=bin_edges)
+                                        prior_probability = prior_counts / len(prior_samples)
+                                        fig.add_trace(go.Scatter(
+                                            x=bin_centers, y=prior_probability,
+                                            mode='lines', name='Prior Distribution',
+                                            line=dict(color='blue', width=2),
+                                            yaxis='y'
+                                        ))
                             fig.add_vline(x=mean_val, line_dash="dash", line_color="black", line_width=1)
                             
                             with plot_cols[j]:
@@ -1134,7 +1199,8 @@ class ATESVisualizer:
                     y=data, 
                     name="Distribution",
                     marker_color=self.group_colors[group_name],
-                    line=dict(color='black')
+                    line=dict(color='black'),
+                    fillcolor=self.group_colors[group_name]
                 ),
                 row=1, col=2
             )

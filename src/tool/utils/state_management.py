@@ -166,7 +166,8 @@ class ATESAppState:
         param_names = [
             'aquifer_temp', 'water_density', 'water_specific_heat_capacity',
             'thermal_recovery_factor', 'heating_target_avg_flowrate_pd',
-            'tolerance_in_energy_balance', 'heating_number_of_doublets',
+            'tolerance_in_energy_balance','tolerance_in_thermal_recovery', 
+            'tolerance_in_volume_balance', 'heating_number_of_doublets',
             'heating_days', 'cooling_days', 'pump_energy_density',
             'heating_ave_injection_temp', 'heating_temp_to_building',
             'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
@@ -476,7 +477,8 @@ class ATESAppState:
         probabilistic_params = [
             'aquifer_temp', 'water_density', 'water_specific_heat_capacity',
             'thermal_recovery_factor', 'heating_target_avg_flowrate_pd',
-            'tolerance_in_energy_balance', 'heating_number_of_doublets',
+            'tolerance_in_energy_balance', 'tolerance_in_thermal_recovery',
+            'tolerance_in_volume_balance','heating_number_of_doublets',
             'heating_days', 'cooling_days', 'pump_energy_density',
             'heating_ave_injection_temp', 'heating_temp_to_building',
             'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
@@ -748,6 +750,9 @@ class ATESAppState:
             'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
             'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
             'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
+            'tolerance_in_thermal_recovery': 'Thermal Recovery Tolerance εRT (-)',
+            'use_volume_balance': 'Use Volume Balance',
+            'tolerance_in_volume_balance': 'Volume Balance Tolerance εVBR (-)',
             'heating_number_of_doublets': 'Number of Doublets',
             'heating_days': 'Heating Days',
             'cooling_days': 'Cooling Days',
@@ -773,6 +778,9 @@ class ATESAppState:
                 display_names['thermal_recovery_factor']: params.thermal_recovery_factor,
                 display_names['heating_target_avg_flowrate_pd']: params.heating_target_avg_flowrate_pd,
                 display_names['tolerance_in_energy_balance']: params.tolerance_in_energy_balance,
+                display_names['tolerance_in_thermal_recovery']: params.tolerance_in_thermal_recovery,
+                display_names['use_volume_balance']: params.use_volume_balance,
+                display_names['tolerance_in_volume_balance']: params.tolerance_in_volume_balance,
                 display_names['heating_number_of_doublets']: params.heating_number_of_doublets,
                 display_names['heating_days']: params.heating_days,
                 display_names['cooling_days']: params.cooling_days,
@@ -921,6 +929,9 @@ class ATESAppState:
                 'Water Density (kg/m³)': 'water_density',
                 'Water Specific Heat Capacity (J/kg/K)': 'water_specific_heat_capacity',
                 'Thermal Recovery Factor (-)': 'thermal_recovery_factor',
+                'Thermal Recovery Tolerance εRT (-)': 'tolerance_in_thermal_recovery',
+                'Use Volume Balance': 'use_volume_balance',
+                'Volume Balance Tolerance εVBR (-)': 'tolerance_in_volume_balance',
                 'Target Flow Rate Heating (m³/hr)': 'heating_target_avg_flowrate_pd',
                 'Energy Balance Tolerance (-)': 'tolerance_in_energy_balance',
                 'Number of Doublets': 'heating_number_of_doublets',
@@ -945,6 +956,8 @@ class ATESAppState:
                     internal_key = reverse_names[key]
                 else:
                     internal_key = key
+                if internal_key == 'use_volume_balance':
+                    value = bool(value) if not isinstance(value, str) else value.lower() == 'true'
                 if hasattr(params, internal_key):
                     setattr(params, internal_key, value)
             
@@ -961,6 +974,9 @@ class ATESAppState:
                         'Water Density (kg/m³)': 'water_density',
                         'Water Specific Heat Capacity (J/kg/K)': 'water_specific_heat_capacity',
                         'Thermal Recovery Factor (-)': 'thermal_recovery_factor',
+                        'Thermal Recovery Tolerance εRT (-)': 'tolerance_in_thermal_recovery',
+                        'Use Volume Balance': 'use_volume_balance',
+                        'Volume Balance Tolerance εVBR (-)': 'tolerance_in_volume_balance',
                         'Target Flow Rate Heating (m³/hr)': 'heating_target_avg_flowrate_pd',
                         'Energy Balance Tolerance (-)': 'tolerance_in_energy_balance',
                         'Number of Doublets': 'heating_number_of_doublets',
@@ -1030,6 +1046,9 @@ class ATESAppState:
             ('thermal_recovery_factor', '_temp_thermal_recovery_factor'),
             ('heating_target_avg_flowrate_pd', '_temp_heating_target_avg_flowrate_pd'),
             ('tolerance_in_energy_balance', '_temp_tolerance_in_energy_balance'),
+            ('tolerance_in_thermal_recovery', '_temp_tolerance_in_thermal_recovery'),
+            ('use_volume_balance', '_temp_use_volume_balance'),
+            ('tolerance_in_volume_balance', '_temp_tolerance_in_volume_balance'),
             ('heating_number_of_doublets', '_temp_heating_number_of_doublets'),
             ('heating_days', '_temp_heating_days'),
             ('cooling_days', '_temp_cooling_days'),

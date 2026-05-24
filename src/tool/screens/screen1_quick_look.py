@@ -348,6 +348,22 @@ def render_parameter_section_c():
                 key=f"tolerance_in_energy_balance_v{v}"
             )
 
+            cooling_ave_injection_temp = st.number_input(
+                "Warm well injection temperature (°C)",
+                value=float(st.session_state.ates_params.cooling_ave_injection_temp),
+                min_value=0.0,
+                step=0.1,
+                format="%.2f",
+                help="Warm well injection temperature (> Aquifer Temperature)",
+                key=f"cooling_ave_injection_temp_v{v}"
+            )
+            if cooling_ave_injection_temp <= st.session_state.ates_params.aquifer_temp:
+                st.warning("⚠️ Warm well injection temperature must be > aquifer temperature")
+
+        
+        col3, col4 = st.columns(2)
+
+        with col3:
             tolerance_in_thermal_recovery = st.number_input(
                 "Thermal Recovery Tolerance εRT (-)",
                 value=float(st.session_state.ates_params.tolerance_in_thermal_recovery),
@@ -359,10 +375,11 @@ def render_parameter_section_c():
                 key=f"tolerance_in_thermal_recovery_v{v}"
             )
 
+        with col4:
             use_volume_balance = st.checkbox(
                 "Use Volume Balance for Cooling Flow Rate",
                 value=bool(st.session_state.ates_params.use_volume_balance),
-                help="If checked, uses volume balance (Eq38); otherwise uses energy balance (Eq37)",
+                help="If checked, uses volume balance; otherwise uses energy balance",
                 key=f"use_volume_balance_v{v}"
             )
 
@@ -376,19 +393,7 @@ def render_parameter_section_c():
                 )
             else:
                 tolerance_in_volume_balance = st.session_state.ates_params.tolerance_in_volume_balance
-                
-            cooling_ave_injection_temp = st.number_input(
-                "Warm well injection temperature (°C)",
-                value=float(st.session_state.ates_params.cooling_ave_injection_temp),
-                min_value=0.0,
-                step=0.1,
-                format="%.2f",
-                help="Warm well injection temperature (> Aquifer Temperature)",
-                key=f"cooling_ave_injection_temp_v{v}"
-            )
-            if cooling_ave_injection_temp <= st.session_state.ates_params.aquifer_temp:
-                st.warning("⚠️ Warm well injection temperature must be > aquifer temperature")
-        
+
         st.session_state['_temp_heating_target_avg_flowrate_pd'] = heating_target_avg_flowrate_pd
         st.session_state['_temp_heating_number_of_doublets'] = heating_number_of_doublets
         st.session_state['_temp_thermal_recovery_factor'] = thermal_recovery_factor
@@ -398,7 +403,6 @@ def render_parameter_section_c():
         st.session_state['_temp_tolerance_in_thermal_recovery'] = tolerance_in_thermal_recovery
         st.session_state['_temp_use_volume_balance'] = use_volume_balance
         st.session_state['_temp_tolerance_in_volume_balance'] = tolerance_in_volume_balance
-
 
 def render_parameter_section_d():
     """
@@ -606,7 +610,6 @@ def perform_calculation():
     try:
         # Update all parameters from temporary variables before calculation
         update_all_parameters_from_temp()
-        
         start_time = time.time()
         
         # Validate parameters
@@ -625,7 +628,6 @@ def perform_calculation():
         st.session_state.calculation_count += 1
         
         # Initialize or update probability distributions after successful calculation
-        initialize_default_distributions()
         calc_time = time.time() - start_time
         st.success(f"Calculation complete! Time taken: {calc_time:.3f} seconds")
         return True
@@ -903,7 +905,8 @@ def main():
     """
     # initialize session state and distributions
     initialize_session_state()
-    initialize_default_distributions()
+    if 'param_distributions' not in st.session_state:
+        initialize_default_distributions()
     
     # Check and initialize temporary variables
     temp_keys_exist = any(str(key).startswith('_temp_') for key in st.session_state.keys() if isinstance(key, str))

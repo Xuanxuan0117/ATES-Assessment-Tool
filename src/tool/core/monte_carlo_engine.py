@@ -504,6 +504,17 @@ class ATESMonteCarloEngine:
                 if not self._check_eq31(params, result):
                     result_dict['success'] = False
                     result_dict['rejection_reason'] = 'non_physical_eq31'
+
+               
+                for param_name in ['aquifer_temp', 'thermal_recovery_factor',
+                                'heating_target_avg_flowrate_pd', 'tolerance_in_energy_balance',
+                                'tolerance_in_thermal_recovery', 'tolerance_in_volume_balance',
+                                'heating_days', 'cooling_days', 'heating_ave_injection_temp',
+                                'cooling_ave_injection_temp', 'heating_temp_to_building',
+                                'cooling_temp_to_building', 'pump_energy_density',
+                                'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
+                                'carbon_intensity', 'water_density', 'water_specific_heat_capacity']:
+                    result_dict[f'input_{param_name}'] = getattr(params, param_name, None)
                     
             except Exception as e:
                 result_dict = self._create_error_result(i, str(e))
@@ -519,11 +530,9 @@ class ATESMonteCarloEngine:
         """
         Process a chunk of parameter samples
         """
-        # accumulate results for this chunk
         chunk_results: List[Dict[str, Any]] = []
         
         for i, (_, row) in enumerate(chunk.iterrows()):
-            # build a full instance for this sample
             params = self._create_parameter_instance(row)
             
             try:
@@ -536,11 +545,22 @@ class ATESMonteCarloEngine:
                     result_dict['success'] = False
                     result_dict['rejection_reason'] = 'non_physical_eq31'
 
+                
+                for param_name in ['aquifer_temp', 'thermal_recovery_factor',
+                                'heating_target_avg_flowrate_pd', 'tolerance_in_energy_balance',
+                                'tolerance_in_thermal_recovery', 'tolerance_in_volume_balance',
+                                'heating_days', 'cooling_days', 'heating_ave_injection_temp',
+                                'cooling_ave_injection_temp', 'heating_temp_to_building',
+                                'cooling_temp_to_building', 'pump_energy_density',
+                                'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
+                                'carbon_intensity', 'water_density', 'water_specific_heat_capacity']:
+                    result_dict[f'input_{param_name}'] = getattr(params, param_name, None)
+
                 chunk_results.append(result_dict)
             except Exception as e:
                 result_dict = self._create_error_result(start_index + i, str(e))
                 chunk_results.append(result_dict)
-        # return all results from this chunk to the caller for aggregation
+        
         return chunk_results
 
 

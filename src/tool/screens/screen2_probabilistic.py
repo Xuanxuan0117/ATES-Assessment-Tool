@@ -57,7 +57,8 @@ def initialize_distributions_from_ates_params() -> None:
     probabilistic_params = [
         'aquifer_temp', 'water_density', 'water_specific_heat_capacity',
         'thermal_recovery_factor', 'heating_target_avg_flowrate_pd',
-        'tolerance_in_energy_balance', 'heating_number_of_doublets',
+        'tolerance_in_energy_balance', 'tolerance_in_thermal_recovery',
+        'tolerance_in_volume_balance','heating_number_of_doublets',
         'heating_days', 'cooling_days', 'pump_energy_density',
         'heating_ave_injection_temp', 'heating_temp_to_building',
         'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
@@ -89,7 +90,8 @@ def initialize_distributions() -> Dict[str, Dict[str, Any]]:
     probabilistic_params = [
         'aquifer_temp', 'water_density', 'water_specific_heat_capacity',
         'thermal_recovery_factor', 'heating_target_avg_flowrate_pd',
-        'tolerance_in_energy_balance', 'heating_number_of_doublets',
+        'tolerance_in_energy_balance', 'tolerance_in_thermal_recovery',
+        'tolerance_in_volume_balance','heating_number_of_doublets',
         'heating_days', 'cooling_days', 'pump_energy_density',
         'heating_ave_injection_temp', 'heating_temp_to_building',
         'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
@@ -522,6 +524,8 @@ def render_operational_parameters():
         'heating_ave_injection_temp',
         'thermal_recovery_factor',
         'tolerance_in_energy_balance',
+        'tolerance_in_thermal_recovery',
+        'tolerance_in_volume_balance',
         'cooling_ave_injection_temp'
     ]
     
@@ -531,6 +535,8 @@ def render_operational_parameters():
         'heating_ave_injection_temp': 'Cool well injection temperature (°C)',
         'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
         'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
+        'tolerance_in_thermal_recovery': 'Thermal Recovery Tolerance εRT (-)',
+        'tolerance_in_volume_balance': 'Volume Balance Tolerance εVBR (-)',
         'cooling_ave_injection_temp': 'Warm well injection temperature (°C)'
     }
     
@@ -748,6 +754,8 @@ def render_enabled_parameters_summary():
         'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
         'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
         'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
+        'tolerance_in_thermal_recovery': 'Thermal Recovery Tolerance εRT (-)',
+        'tolerance_in_volume_balance': 'Volume Balance Tolerance εVBR (-)',
         'heating_number_of_doublets': 'Number of Doublets',
         'heating_days': 'Heating Days',
         'cooling_days': 'Cooling Days',

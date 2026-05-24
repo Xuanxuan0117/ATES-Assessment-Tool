@@ -526,7 +526,7 @@ class ATESCalculator:
 
 
         # N10 = groundwater temperature
-        r.cooling_ave_production_temp = (r.cooling_annual_energy_aquifer_J /(p.water_volumetric_heat_capacity * p.cooling_total_produced_volume) + p.cooling_ave_injection_temp)
+        r.cooling_ave_production_temp = (-r.cooling_annual_energy_aquifer_J / (p.water_volumetric_heat_capacity * p.cooling_total_produced_volume) +p.cooling_ave_injection_temp)
         calculated_physical_cooling_temp = r.cooling_ave_production_temp
 
         # decide whether we are using direct cooling mode
