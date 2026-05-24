@@ -200,10 +200,14 @@ class ATESVisualizer:
 
             'Input Parameters - Prior & Posterior': {
                 'input_aquifer_temp': 'Aquifer Temperature (°C)',
+                'input_water_density': 'Water Density (kg/m³)',
+                'input_water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
+                'input_heating_number_of_doublets': 'Number of Doublets',
                 'input_thermal_recovery_factor': 'Thermal Recovery Factor (-)',
                 'input_heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
                 'input_tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
                 'input_tolerance_in_thermal_recovery': 'Thermal Recovery Tolerance εRT (-)',
+                'input_tolerance_in_volume_balance': 'Volume Balance Tolerance εVBR (-)',
                 'input_heating_days': 'Heating Days',
                 'input_cooling_days': 'Cooling Days',
                 'input_heating_ave_injection_temp': 'Cool Well Injection Temperature (°C)',
@@ -211,6 +215,10 @@ class ATESVisualizer:
                 'input_heating_temp_to_building': 'Building Heating Temperature (°C)',
                 'input_cooling_temp_to_building': 'Building Cooling Temperature (°C)',
                 'input_pump_energy_density': 'Pump Energy Density (kJ/m³)',
+                'input_cop_param_a': 'COP Parameter A (-)',
+                'input_cop_param_b': 'COP Parameter B (-)',
+                'input_cop_param_c': 'COP Parameter C (-)',
+                'input_cop_param_d': 'COP Parameter D (-)',
                 'input_carbon_intensity': 'Carbon Intensity (gCO₂/kWh)',
             }
         }
