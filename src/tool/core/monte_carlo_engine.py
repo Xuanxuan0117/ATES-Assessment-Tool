@@ -513,7 +513,8 @@ class ATESMonteCarloEngine:
                                 'cooling_ave_injection_temp', 'heating_temp_to_building',
                                 'cooling_temp_to_building', 'pump_energy_density',
                                 'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
-                                'carbon_intensity', 'water_density', 'water_specific_heat_capacity', 'heating_number_of_doublets']:
+                                'carbon_intensity', 'water_density', 'water_specific_heat_capacity',
+                                 'heating_number_of_doublets','thermal_recovery_factor_c','cooling_target_avg_flowrate_pd']:
                     result_dict[f'input_{param_name}'] = getattr(params, param_name, None)
                     
             except Exception as e:
@@ -553,7 +554,8 @@ class ATESMonteCarloEngine:
                                 'cooling_ave_injection_temp', 'heating_temp_to_building',
                                 'cooling_temp_to_building', 'pump_energy_density',
                                 'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
-                                'carbon_intensity', 'water_density', 'water_specific_heat_capacity','heating_number_of_doublets']:
+                                'carbon_intensity', 'water_density', 'water_specific_heat_capacity',
+                                'heating_number_of_doublets','thermal_recovery_factor_c','cooling_target_avg_flowrate_pd',]:
                     result_dict[f'input_{param_name}'] = getattr(params, param_name, None)
 
                 chunk_results.append(result_dict)

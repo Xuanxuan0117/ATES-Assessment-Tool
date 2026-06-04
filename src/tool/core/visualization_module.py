@@ -204,6 +204,7 @@ class ATESVisualizer:
                 'input_water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
                 'input_heating_number_of_doublets': 'Number of Doublets',
                 'input_thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+                'input_thermal_recovery_factor_c': 'Thermal Recovery Factor Cooling RT,c (-)',
                 'input_heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
                 'input_tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
                 'input_tolerance_in_thermal_recovery': 'Thermal Recovery Tolerance εRT (-)',
@@ -214,6 +215,7 @@ class ATESVisualizer:
                 'input_cooling_ave_injection_temp': 'Warm Well Injection Temperature (°C)',
                 'input_heating_temp_to_building': 'Building Heating Temperature (°C)',
                 'input_cooling_temp_to_building': 'Building Cooling Temperature (°C)',
+                'input_cooling_target_avg_flowrate_pd': 'Target Flow Rate Cooling (m³/hr)',
                 'input_pump_energy_density': 'Pump Energy Density (kJ/m³)',
                 'input_cop_param_a': 'COP Parameter A (-)',
                 'input_cop_param_b': 'COP Parameter B (-)',
@@ -237,7 +239,7 @@ class ATESVisualizer:
             'Cooling System - Heat Pump & Electrical': '#0D6EFD',
             'System Balance & Groundwater Volumes': '#7F7F7F',
             'System Balance & Overall': '#7F7F7F',
-            'Input Parameters - Prior & Posterior': '#2CA02C'
+            ' - Prior & Posterior': '#2CA02C'
         }
     
     def render_distribution_plots(self):

@@ -49,7 +49,7 @@ class ATESParameters:
     water_volumetric_heat_capacity: float = 0.0       # D6  - cw Water volumetric heat capacity (J/K/m³)
     shoulder_days: float = 0.0                        # D19 - (-) Number of months which not heating and cooling (-)
     heating_total_produced_volume: float = 0.0        # D21 - Vp,h Total produced heating volume(m³)
-    thermal_recovery_factor_c: float = 0.0            # RT,c 自动计算
+    thermal_recovery_factor_c: float = 0.0            # RT,c 
     
     # turn on for direct calculation, off for monte-carlo
     _validation_enabled: bool = True
