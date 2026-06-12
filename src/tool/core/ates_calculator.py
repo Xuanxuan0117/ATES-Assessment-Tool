@@ -103,10 +103,10 @@ class ATESParameters:
             )
         else:
             # Eq37 - Energy balance
-            numerator = ((self.aquifer_temp - self.heating_ave_injection_temp) * self.heating_days -
-                        self.thermal_recovery_factor * (self.heating_ave_injection_temp - self.aquifer_temp) * self.heating_days)
+            numerator = ((self.aquifer_temp - self.heating_ave_injection_temp) * self.heating_days +
+                        self.thermal_recovery_factor_c * (self.heating_ave_injection_temp - self.aquifer_temp) * self.heating_days)
 
-            denominator = ((self.aquifer_temp - self.cooling_ave_injection_temp) * self.cooling_days -
+            denominator = ((self.aquifer_temp - self.cooling_ave_injection_temp) * self.cooling_days +
                         self.thermal_recovery_factor * (self.cooling_ave_injection_temp - self.aquifer_temp) * self.cooling_days)
 
             if abs(denominator) < 1e-10:
@@ -303,6 +303,8 @@ class ATESResults:
     # identify Direct Mode(whether we are using heat pump to heat/cool)
     heating_direct_mode: bool = False
     cooling_direct_mode: bool = True
+    cooling_physical_production_temp: float = 0.0       # N10 physical value before direct mode override
+    heating_physical_production_temp: float = 0.0       # K10 physical value
 
 class ATESCalculator:
     """
@@ -374,7 +376,8 @@ class ATESCalculator:
         r.heating_ave_production_temp = (r.heating_annual_energy_aquifer_J / 
             (p.water_volumetric_heat_capacity * p.heating_total_produced_volume) + 
             p.heating_ave_injection_temp)
-        calculated_physical_heating_temp = r.heating_ave_production_temp 
+        calculated_physical_heating_temp = r.heating_ave_production_temp
+        r.heating_physical_production_temp = calculated_physical_heating_temp
         if calculated_physical_heating_temp >= p.heating_temp_to_building:
             # Direct heating mode (production temperature is sufficient)
             r.heating_direct_mode = True
@@ -528,6 +531,7 @@ class ATESCalculator:
         # N10 = groundwater temperature
         r.cooling_ave_production_temp = (-r.cooling_annual_energy_aquifer_J / (p.water_volumetric_heat_capacity * p.cooling_total_produced_volume) +p.cooling_ave_injection_temp)
         calculated_physical_cooling_temp = r.cooling_ave_production_temp
+        r.cooling_physical_production_temp = calculated_physical_cooling_temp
 
         # decide whether we are using direct cooling mode
         if calculated_physical_cooling_temp <= p.cooling_temp_to_building:

@@ -495,6 +495,12 @@ def render_parameter_section_e():
                 disabled=True,
                 help="Water Density × Water Specific Heat"
             )
+            st.text_input(
+                "Thermal Recovery Factor Cooling RT,c (-)",
+                value=f"{st.session_state.ates_params.thermal_recovery_factor_c:.4f}",
+                disabled=True,
+                help="RT,c = (1 + εRT) × RT,h"
+            )
             
             
             
@@ -622,6 +628,23 @@ def perform_calculation():
         # Create calculator and perform calculation
         calculator = ATESCalculator(st.session_state.ates_params)
         results = calculator.calculate()
+        
+        # Check Eq31 physical constraint
+        p = st.session_state.ates_params
+        violations = []
+        if not (p.heating_ave_injection_temp <= results.cooling_physical_production_temp):
+            violations.append(f"Cool well production temp ({results.cooling_physical_production_temp:.2f}°C) < cool well injection temp ({p.heating_ave_injection_temp:.2f}°C)")
+        if not (results.cooling_physical_production_temp <= p.aquifer_temp):
+            violations.append(f"Cool well production temp ({results.cooling_physical_production_temp:.2f}°C) > aquifer temp ({p.aquifer_temp:.2f}°C)")
+        if not (p.aquifer_temp <= results.heating_physical_production_temp):
+            violations.append(f"Warm well production temp ({results.heating_physical_production_temp:.2f}°C) < aquifer temp ({p.aquifer_temp:.2f}°C)")
+        if not (results.heating_physical_production_temp <= p.cooling_ave_injection_temp):
+            violations.append(f"Warm well production temp ({results.heating_physical_production_temp:.2f}°C) > warm well injection temp ({p.cooling_ave_injection_temp:.2f}°C)")
+        
+        if violations:
+            message = "Calculation stopped: physically non-viable parameters. " + "; ".join(violations)
+            st.error(message)
+            return False 
         
         # Save results
         st.session_state.results = results
@@ -989,7 +1012,23 @@ def main():
                     for error in errors:
                         st.error(error)
                 else:
-                    st.success("All parameters are valid")
+                    # Eq31 physical viability check
+                    p = st.session_state.ates_params
+                    results = ATESCalculator(p).calculate()
+                    violations = []
+                    if not (p.heating_ave_injection_temp <= results.cooling_physical_production_temp):
+                        violations.append(f"Cool well production temp ({results.cooling_physical_production_temp:.2f}°C) < cool well injection temp ({p.heating_ave_injection_temp:.2f}°C)")
+                    if not (results.cooling_physical_production_temp <= p.aquifer_temp):
+                        violations.append(f"Cool well production temp ({results.cooling_physical_production_temp:.2f}°C) > aquifer temp ({p.aquifer_temp:.2f}°C)")
+                    if not (p.aquifer_temp <= results.heating_physical_production_temp):
+                        violations.append(f"Warm well production temp ({results.heating_physical_production_temp:.2f}°C) < aquifer temp ({p.aquifer_temp:.2f}°C)")
+                    if not (results.heating_physical_production_temp <= p.cooling_ave_injection_temp):
+                        violations.append(f"Warm well production temp ({results.heating_physical_production_temp:.2f}°C) > warm well injection temp ({p.cooling_ave_injection_temp:.2f}°C)")
+                    
+                    if violations:
+                        st.error("Parameters physically non-viable. " + "; ".join(violations))
+                    else:
+                        st.success("All parameters are valid")
     
     with col_results:
         st.header("Calculation Results")

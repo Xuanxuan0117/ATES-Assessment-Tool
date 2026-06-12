@@ -481,10 +481,10 @@ class ATESMonteCarloEngine:
     def _check_eq31(self, params: ATESParameters, result: ATESResults) -> bool:
         """Check Eq31 physical constraint: Ti,c <= Tp,c <= Taq <= Tp,h <= Ti,h"""
         return (
-            params.heating_ave_injection_temp <= result.cooling_ave_production_temp <=
-            params.aquifer_temp <= result.heating_ave_production_temp <=
+            params.heating_ave_injection_temp <= result.cooling_physical_production_temp <=
+            params.aquifer_temp <= result.heating_physical_production_temp <=
             params.cooling_ave_injection_temp
-         )
+        )
 
     def _run_sequential_calculations(self, parameter_samples: pd.DataFrame, 
                                progress_callback: Optional[Callable[[int, int], None]] = None) -> pd.DataFrame:
