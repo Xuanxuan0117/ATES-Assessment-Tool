@@ -103,9 +103,8 @@ def update_all_parameters_from_temp():
         st.session_state.ates_params.__post_init__()
         mark_case_modified()
         
-        # Synchronize to probability distribution settings if sync is enabled
-        if st.session_state.get('sync_enabled', True):
-            sync_all_params_to_distributions()
+        # Quick Look and Probabilistic settings are intentionally independent.
+        # Use the explicit Sync FROM/TO Quick Look buttons on Screen 2 to copy values.
 
 def sync_param_to_distribution(param_name: str, value: float):
     """
@@ -1129,7 +1128,7 @@ def main():
         initialize_temp_variables_from_params()
     
     if 'sync_enabled' not in st.session_state:
-        st.session_state.sync_enabled = True
+        st.session_state.sync_enabled = False
     
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 'Quick Look'

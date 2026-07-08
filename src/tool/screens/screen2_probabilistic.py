@@ -13,6 +13,7 @@ from plotly.subplots import make_subplots
 import scipy.stats as stats
 from typing import Dict, List, Any, Optional
 import time
+from dataclasses import replace
 
 from tool.core.ates_calculator import ATESParameters
 from tool.core.monte_carlo_engine import ATESMonteCarloEngine, MonteCarloConfig, create_progress_callback
@@ -43,6 +44,7 @@ def initialize_probabilistic_session_state():
     
     if 'mc_config' not in st.session_state:
         st.session_state.mc_config = MonteCarloConfig()
+    ensure_monte_carlo_operation_settings()
     
     if 'param_config_version' not in st.session_state:
         st.session_state.param_config_version = 0
@@ -69,6 +71,30 @@ def ensure_distribution_parameter(param_name: str) -> None:
         'location': 0.0,
         'use_log_params': False,
     }
+
+def ensure_monte_carlo_operation_settings() -> None:
+    """Backfill Monte Carlo-only operation settings for older sessions."""
+    defaults = {
+        'specify_cooling_flowrate': False,
+        'use_volume_balance': False,
+        'constrain_by_thermal_radius': False,
+    }
+    for name, value in defaults.items():
+        if not hasattr(st.session_state.mc_config, name):
+            setattr(st.session_state.mc_config, name, value)
+
+def sync_monte_carlo_operation_widget_state() -> None:
+    """Keep Monte Carlo operation widgets aligned after explicit sync/load actions."""
+    if 'mc_config' not in st.session_state:
+        return
+
+    st.session_state['mc_specify_flowrate_choice'] = (
+        "Cool flowrate (compute warm)"
+        if bool(st.session_state.mc_config.specify_cooling_flowrate)
+        else "Warm flowrate (compute cool)"
+    )
+    st.session_state['mc_use_volume_balance'] = bool(st.session_state.mc_config.use_volume_balance)
+    st.session_state['mc_constrain_by_thermal_radius'] = bool(st.session_state.mc_config.constrain_by_thermal_radius)
 
 def initialize_distributions_from_ates_params() -> None:
     """Initialize distributions directly from ATES parameters"""
@@ -156,7 +182,13 @@ def sync_from_deterministic():
             dist['most_likely'] = current_value
             dist['std'] = max(current_value * 0.1, 0.01)
 
-        # Clear stable_param_values cache to force UI refresh
+    if 'mc_config' in st.session_state and 'ates_params' in st.session_state:
+        st.session_state.mc_config.specify_cooling_flowrate = bool(st.session_state.ates_params.specify_cooling_flowrate)
+        st.session_state.mc_config.use_volume_balance = bool(st.session_state.ates_params.use_volume_balance)
+        st.session_state.mc_config.constrain_by_thermal_radius = bool(st.session_state.ates_params.constrain_by_thermal_radius)
+        sync_monte_carlo_operation_widget_state()
+
+    # Clear stable_param_values cache to force UI refresh
     st.session_state['stable_param_values'] = {}
     st.session_state['param_config_version'] = st.session_state.get('param_config_version', 0) + 1
 
@@ -189,7 +221,19 @@ def sync_to_deterministic():
             if has_changed:
                 setattr(st.session_state.ates_params, param_name, new_value)
                 updated_count += 1
-            
+
+    operation_params = [
+        'specify_cooling_flowrate',
+        'use_volume_balance',
+        'constrain_by_thermal_radius',
+    ]
+    for param_name in operation_params:
+        if hasattr(st.session_state.mc_config, param_name) and hasattr(st.session_state.ates_params, param_name):
+            new_value = bool(getattr(st.session_state.mc_config, param_name))
+            if bool(getattr(st.session_state.ates_params, param_name)) != new_value:
+                setattr(st.session_state.ates_params, param_name, new_value)
+                updated_count += 1
+
     
     if updated_count > 0:
         st.session_state.ates_params.__post_init__()
@@ -266,6 +310,15 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
         from tool.utils.state_management import mark_case_modified
         mark_case_modified()
 
+    def update_stable_config_from_widget(config_key: str, widget_key: str):
+        """
+        Safely update distribution state from a widget callback.
+        New-case resets can briefly invalidate versioned widget keys before
+        Streamlit recreates them, so fall back to the current stable value.
+        """
+        value = st.session_state.get(widget_key, stable_config.get(config_key))
+        update_stable_config(config_key, value)
+
     if dist_type == 'single_value':
         val_key = f"val_{param_name}_v{version}"
         if is_integer_param:
@@ -274,7 +327,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                 value=int(stable_config.get('value', 0)),
                 key=val_key,
                 step=1,
-                on_change=lambda: update_stable_config('value', st.session_state[val_key])
+                on_change=lambda key=val_key: update_stable_config_from_widget('value', key)
             )
         else:
             st.number_input(
@@ -283,7 +336,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                 key=val_key,
                 format="%.4f",
                 step=0.0001,
-                on_change=lambda: update_stable_config('value', st.session_state[val_key])
+                on_change=lambda key=val_key: update_stable_config_from_widget('value', key)
             )
     
     elif dist_type == 'range':
@@ -296,7 +349,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     value=int(stable_config.get('min', 0)),
                     key=min_key,
                     step=1,
-                    on_change=lambda: update_stable_config('min', st.session_state[min_key])
+                    on_change=lambda key=min_key: update_stable_config_from_widget('min', key)
                 )
             else:
                 st.number_input(
@@ -305,7 +358,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     key=min_key,
                     format="%.4f",
                     step=0.0001,
-                    on_change=lambda: update_stable_config('min', st.session_state[min_key])
+                    on_change=lambda key=min_key: update_stable_config_from_widget('min', key)
                 )
                 
         with col2:
@@ -316,7 +369,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     value=int(stable_config.get('max', 1)),
                     key=max_key,
                     step=1,
-                    on_change=lambda: update_stable_config('max', st.session_state[max_key])
+                    on_change=lambda key=max_key: update_stable_config_from_widget('max', key)
                 )
             else:
                 st.number_input(
@@ -325,7 +378,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     key=max_key,
                     format="%.4f",
                     step=0.0001,
-                    on_change=lambda: update_stable_config('max', st.session_state[max_key])
+                    on_change=lambda key=max_key: update_stable_config_from_widget('max', key)
                 )
         
         if stable_config.get('min', 0) >= stable_config.get('max', 1):
@@ -341,7 +394,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     value=int(stable_config.get('min', 0)),
                     key=tri_min_key,
                     step=1,
-                    on_change=lambda: update_stable_config('min', st.session_state[tri_min_key])
+                    on_change=lambda key=tri_min_key: update_stable_config_from_widget('min', key)
                 )
             else:
                 st.number_input(
@@ -350,7 +403,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     key=tri_min_key,
                     format="%.4f",
                     step=0.0001,
-                    on_change=lambda: update_stable_config('min', st.session_state[tri_min_key])
+                    on_change=lambda key=tri_min_key: update_stable_config_from_widget('min', key)
                 )
                 
         with col2:
@@ -361,7 +414,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     value=int(stable_config.get('most_likely', 1)),
                     key=tri_ml_key,
                     step=1,
-                    on_change=lambda: update_stable_config('most_likely', st.session_state[tri_ml_key])
+                    on_change=lambda key=tri_ml_key: update_stable_config_from_widget('most_likely', key)
                 )
             else:
                 st.number_input(
@@ -370,7 +423,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     key=tri_ml_key,
                     format="%.4f",
                     step=0.0001,
-                    on_change=lambda: update_stable_config('most_likely', st.session_state[tri_ml_key])
+                    on_change=lambda key=tri_ml_key: update_stable_config_from_widget('most_likely', key)
                 )
                 
         with col3:
@@ -381,7 +434,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     value=int(stable_config.get('max', 2)),
                     key=tri_max_key,
                     step=1,
-                    on_change=lambda: update_stable_config('max', st.session_state[tri_max_key])
+                    on_change=lambda key=tri_max_key: update_stable_config_from_widget('max', key)
                 )
             else:
                 st.number_input(
@@ -390,7 +443,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     key=tri_max_key,
                     format="%.4f",
                     step=0.0001,
-                    on_change=lambda: update_stable_config('max', st.session_state[tri_max_key])
+                    on_change=lambda key=tri_max_key: update_stable_config_from_widget('max', key)
                 )
         
         min_val = stable_config.get('min', 0)
@@ -409,7 +462,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     value=int(stable_config.get('mean', 0)),
                     key=mean_key,
                     step=1,
-                    on_change=lambda: update_stable_config('mean', st.session_state[mean_key])
+                    on_change=lambda key=mean_key: update_stable_config_from_widget('mean', key)
                 )
             else:
                 st.number_input(
@@ -418,7 +471,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     key=mean_key,
                     format="%.4f",
                     step=0.0001,
-                    on_change=lambda: update_stable_config('mean', st.session_state[mean_key])
+                    on_change=lambda key=mean_key: update_stable_config_from_widget('mean', key)
                 )
                 
         with col2:
@@ -430,7 +483,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     min_value=0,
                     key=std_key,
                     step=1,
-                    on_change=lambda: update_stable_config('std', st.session_state[std_key])
+                    on_change=lambda key=std_key: update_stable_config_from_widget('std', key)
                 )
             else:
                 st.number_input(
@@ -440,7 +493,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     key=std_key,
                     format="%.4f",
                     step=0.0001,
-                    on_change=lambda: update_stable_config('std', st.session_state[std_key])
+                    on_change=lambda key=std_key: update_stable_config_from_widget('std', key)
                 )
         
         if dist_type == 'lognormal':
@@ -454,7 +507,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     format="%.4f",
                     step=0.0001,
                     help="Minimum possible value (location parameter)",
-                    on_change=lambda: update_stable_config('location', st.session_state[location_key])
+                    on_change=lambda key=location_key: update_stable_config_from_widget('location', key)
                 )
                     
             with col4:
@@ -464,7 +517,7 @@ def render_distribution_params_stable(param_name: str, dist_config: Dict, dist_t
                     value=bool(stable_config.get('use_log_params', False)),
                     key=use_log_key,
                     help="Check if mean/std are already in log space",
-                    on_change=lambda: update_stable_config('use_log_params', st.session_state[use_log_key])
+                    on_change=lambda key=use_log_key: update_stable_config_from_widget('use_log_params', key)
                 )
             
             mean_val = stable_config.get('mean', 0)
@@ -613,8 +666,6 @@ def render_thermal_radius_parameters():
     Render thermal radius parameters section (Feature B, Section F)
     """
     st.subheader("Thermal Radius")
-    st.caption("Enable 'Calculate thermal radius' in Quick Look (Section F) to apply the "
-               "maximum-thermal-radius rejection constraint during Monte Carlo.")
 
     thermal_params = [
         'screen_length',
@@ -737,7 +788,7 @@ def render_monte_carlo_settings():
     """
     st.subheader("Monte Carlo Simulation Settings")
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = st.columns([2, 2, 1])
     
     with col1:
         st.session_state.monte_carlo_iterations = st.number_input(
@@ -767,6 +818,41 @@ def render_monte_carlo_settings():
             help="Use multiple CPU cores for faster computation"
         )
         st.session_state.mc_config.parallel = parallel
+
+    st.markdown("### Monte Carlo Operation")
+    if (
+        'mc_specify_flowrate_choice' not in st.session_state
+        or 'mc_use_volume_balance' not in st.session_state
+        or 'mc_constrain_by_thermal_radius' not in st.session_state
+    ):
+        sync_monte_carlo_operation_widget_state()
+
+    with st.container(border=True):
+        flow_col, options_col = st.columns([1, 1.25])
+        with flow_col:
+            st.markdown("**Flowrate basis**")
+            st.radio(
+                "Flowrate basis",
+                options=["Warm flowrate (compute cool)", "Cool flowrate (compute warm)"],
+                key="mc_specify_flowrate_choice",
+                help="Select which flow rate is sampled as the specified input for Monte Carlo.",
+                label_visibility="collapsed"
+            )
+            st.session_state.mc_config.specify_cooling_flowrate = st.session_state.mc_specify_flowrate_choice.startswith("Cool")
+
+        with options_col:
+            st.markdown("**Calculation options**")
+            st.session_state.mc_config.use_volume_balance = st.checkbox(
+                "Use Volume Balance for Cooling Flow Rate",
+                help="If checked, Monte Carlo uses volume balance; otherwise it uses energy balance.",
+                key="mc_use_volume_balance"
+            )
+
+            st.session_state.mc_config.constrain_by_thermal_radius = st.checkbox(
+                "Apply Thermal Radius Constraint",
+                help="If checked, Monte Carlo rejects samples that exceed the maximum thermal radius.",
+                key="mc_constrain_by_thermal_radius"
+            )
     
     with st.expander("Advanced Settings"):
         col1, col2 = st.columns(2)
@@ -922,8 +1008,15 @@ def run_monte_carlo_analysis():
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        mc_engine = ATESMonteCarloEngine(
+        mc_base_params = replace(
             st.session_state.ates_params,
+            specify_cooling_flowrate=bool(st.session_state.mc_config.specify_cooling_flowrate),
+            use_volume_balance=bool(st.session_state.mc_config.use_volume_balance),
+            constrain_by_thermal_radius=bool(st.session_state.mc_config.constrain_by_thermal_radius),
+        )
+
+        mc_engine = ATESMonteCarloEngine(
+            mc_base_params,
             st.session_state.mc_config
         )
         
@@ -973,7 +1066,10 @@ def run_monte_carlo_analysis():
             'param_distributions': distributions_snapshot,
             'mc_config': {
                 'iterations': st.session_state.mc_config.iterations,
-                'seed': st.session_state.mc_config.seed
+                'seed': st.session_state.mc_config.seed,
+                'specify_cooling_flowrate': st.session_state.mc_config.specify_cooling_flowrate,
+                'use_volume_balance': st.session_state.mc_config.use_volume_balance,
+                'constrain_by_thermal_radius': st.session_state.mc_config.constrain_by_thermal_radius,
             }
         }
         config_str = json.dumps(config_snapshot, sort_keys=True, default=str)

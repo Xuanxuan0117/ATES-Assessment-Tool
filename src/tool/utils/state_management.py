@@ -147,7 +147,10 @@ class ATESAppState:
             'param_distributions': distributions_snapshot,
             'mc_config': {
                 'iterations': st.session_state.mc_config.iterations if 'mc_config' in st.session_state else 10000,
-                'seed': st.session_state.mc_config.seed if 'mc_config' in st.session_state else None
+                'seed': st.session_state.mc_config.seed if 'mc_config' in st.session_state else None,
+                'specify_cooling_flowrate': getattr(st.session_state.mc_config, 'specify_cooling_flowrate', False) if 'mc_config' in st.session_state else False,
+                'use_volume_balance': getattr(st.session_state.mc_config, 'use_volume_balance', False) if 'mc_config' in st.session_state else False,
+                'constrain_by_thermal_radius': getattr(st.session_state.mc_config, 'constrain_by_thermal_radius', False) if 'mc_config' in st.session_state else False
             }
         }
         config_str = json.dumps(config_snapshot, sort_keys=True, default=str)
@@ -454,6 +457,7 @@ class ATESAppState:
         from tool.core.monte_carlo_engine import MonteCarloConfig
         st.session_state['monte_carlo_iterations'] = 10000
         st.session_state['mc_config'] = MonteCarloConfig()
+        self._sync_mc_config_to_widget_state()
         
         # Navigation stability
         st.session_state['_navigation_stable'] = True
@@ -542,7 +546,7 @@ class ATESAppState:
             state_data['case_metadata'] = {
                 'case_name': clean_case_name,
                 'save_time': time.strftime('%Y-%m-%d %H:%M:%S'),
-                'ates_tool_version': '5.0.0'
+                'ates_tool_version': '7.0'
             }
             
             # Convert to JSON
@@ -742,7 +746,7 @@ class ATESAppState:
         data: Dict[str, Any] = {
             'save_type': 'parameters_only',
             'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
-            'version': '1.0.0'
+            'version': '7.0'
         }
         
         # Display name mapping 
@@ -837,7 +841,10 @@ class ATESAppState:
                 'seed': mc_config.seed,
                 'chunk_size': mc_config.chunk_size,
                 'max_workers': mc_config.max_workers,
-                'parallel': mc_config.parallel
+                'parallel': mc_config.parallel,
+                'specify_cooling_flowrate': getattr(mc_config, 'specify_cooling_flowrate', False),
+                'use_volume_balance': getattr(mc_config, 'use_volume_balance', False),
+                'constrain_by_thermal_radius': getattr(mc_config, 'constrain_by_thermal_radius', False)
             }
         
         return data
@@ -1068,9 +1075,13 @@ class ATESAppState:
                 seed=mc_data.get('seed', None),
                 chunk_size=mc_data.get('chunk_size', 1000),
                 max_workers=mc_data.get('max_workers', None),
-                parallel=mc_data.get('parallel', True)
+                parallel=mc_data.get('parallel', True),
+                specify_cooling_flowrate=mc_data.get('specify_cooling_flowrate', False),
+                use_volume_balance=mc_data.get('use_volume_balance', False),
+                constrain_by_thermal_radius=mc_data.get('constrain_by_thermal_radius', False)
             )
             st.session_state['mc_config'] = mc_config
+            self._sync_mc_config_to_widget_state()
 
         from tool.core.ates_calculator import ATESParameters
         ATESParameters.enable_validation()
@@ -1121,6 +1132,20 @@ class ATESAppState:
         for param_name, temp_key in temp_mappings:
             if hasattr(params, param_name):
                 st.session_state[temp_key] = getattr(params, param_name)
+
+    def _sync_mc_config_to_widget_state(self):
+        """Synchronize Monte Carlo config to Screen 2 widget state."""
+        if 'mc_config' not in st.session_state:
+            return
+
+        mc_config = st.session_state.mc_config
+        st.session_state['mc_specify_flowrate_choice'] = (
+            "Cool flowrate (compute warm)"
+            if bool(getattr(mc_config, 'specify_cooling_flowrate', False))
+            else "Warm flowrate (compute cool)"
+        )
+        st.session_state['mc_use_volume_balance'] = bool(getattr(mc_config, 'use_volume_balance', False))
+        st.session_state['mc_constrain_by_thermal_radius'] = bool(getattr(mc_config, 'constrain_by_thermal_radius', False))
     
     def _initialize_default_distributions(self):
         """Initialize default distributions"""

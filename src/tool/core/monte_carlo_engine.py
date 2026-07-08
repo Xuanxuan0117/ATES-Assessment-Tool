@@ -23,6 +23,9 @@ class MonteCarloConfig:
     parallel: bool = True
     max_workers: int = 4
     chunk_size: int = 1000
+    specify_cooling_flowrate: bool = False
+    use_volume_balance: bool = False
+    constrain_by_thermal_radius: bool = False
 
 @dataclass
 class DistributionParams:
