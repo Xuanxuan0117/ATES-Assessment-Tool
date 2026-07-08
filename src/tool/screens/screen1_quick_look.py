@@ -397,7 +397,7 @@ def render_parameter_section_c():
                 key=f"heating_ave_injection_temp_v{v}"
             )
             if heating_ave_injection_temp >= st.session_state.ates_params.aquifer_temp:
-                st.warning("⚠️ Cool well injection temperature must be < aquifer temperature")
+                st.warning("Cool well injection temperature must be < aquifer temperature")
         
         with col2:
             tolerance_in_energy_balance = st.number_input(
@@ -419,7 +419,7 @@ def render_parameter_section_c():
                 key=f"cooling_ave_injection_temp_v{v}"
             )
             if cooling_ave_injection_temp <= st.session_state.ates_params.aquifer_temp:
-                st.warning("⚠️ Warm well injection temperature must be > aquifer temperature")
+                st.warning("Warm well injection temperature must be > aquifer temperature")
 
         _, volume_toggle_col = st.columns(2)
         with volume_toggle_col:
@@ -638,8 +638,7 @@ def render_parameter_section_f():
         constrain_by_thermal_radius = st.checkbox(
             "Calculate thermal radius",
             value=bool(st.session_state.ates_params.constrain_by_thermal_radius),
-            help="Compute warm/cool plume thermal radii. In Monte Carlo this also "
-                 "enables the maximum-thermal-radius rejection constraint.",
+            help="Compute and display warm/cool plume thermal radii for this Quick Look case.",
             key=f"constrain_by_thermal_radius_v{v}"
         )
 
@@ -664,7 +663,7 @@ def render_parameter_section_f():
                     "Maximum Thermal Radius (m)",
                     value=float(st.session_state.ates_params.max_thermal_radius),
                     min_value=0.01, step=1.0, format="%.2f",
-                    help="Constraint threshold; trials exceeding this are rejected in Monte Carlo",
+                    help="Reference threshold for the Quick Look thermal radius comparison",
                     key=f"max_thermal_radius_v{v}"
                 )
             with col2:
@@ -1101,14 +1100,14 @@ def render_thermal_radius_results(results, params):
         with col3:
             st.metric("Max Allowed Thermal Radius",
                       f"{params.max_thermal_radius:.2f} m",
-                      help="Constraint threshold")
+                      help="Reference threshold for this Quick Look comparison")
 
         exceeded = (results.thermal_radius_h > params.max_thermal_radius or
                     results.thermal_radius_c > params.max_thermal_radius)
         if exceeded:
-            st.warning("Thermal radius exceeds the maximum, this case would be rejected in Monte Carlo!")
+            st.warning("Thermal radius exceeds the maximum.")
         else:
-            st.success("Thermal radius within the maximum constraint.")
+            st.success("Thermal radius is within the maximum.")
 
 
 # MAIN APPLICATION
