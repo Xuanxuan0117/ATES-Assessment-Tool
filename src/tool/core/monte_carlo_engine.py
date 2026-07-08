@@ -194,6 +194,16 @@ class ATESMonteCarloEngine:
             tolerance_in_thermal_recovery=self.base_parameters.tolerance_in_thermal_recovery,
             use_volume_balance=self.base_parameters.use_volume_balance,
             tolerance_in_volume_balance=self.base_parameters.tolerance_in_volume_balance,
+            # Feature A - flowrate direction
+            specify_cooling_flowrate=self.base_parameters.specify_cooling_flowrate,
+            cooling_target_avg_flowrate_pd=self.base_parameters.cooling_target_avg_flowrate_pd,
+            # Feature B - thermal radius
+            screen_length=self.base_parameters.screen_length,
+            aquifer_porosity=self.base_parameters.aquifer_porosity,
+            rock_specific_heat_capacity=self.base_parameters.rock_specific_heat_capacity,
+            rock_density=self.base_parameters.rock_density,
+            max_thermal_radius=self.base_parameters.max_thermal_radius,
+            constrain_by_thermal_radius=self.base_parameters.constrain_by_thermal_radius,
         )
         # override the copied parameter with the iteration's sampled values where applicable
         for param_name, value in parameter_row.items():
@@ -319,6 +329,11 @@ class ATESMonteCarloEngine:
             'cooling_co2_emissions_per_thermal': float(result.cooling_co2_emissions_per_thermal),                # N41
             'cooling_total_produced_volume': float(result.cooling_total_produced_volume),                        # G21
             
+            # Feature B - thermal radius outputs (eq34/35/36)
+            'aquifer_volumetric_heat_capacity': float(getattr(result, 'aquifer_volumetric_heat_capacity', 0.0)),
+            'thermal_radius_h': float(getattr(result, 'thermal_radius_h', 0.0)),
+            'thermal_radius_c': float(getattr(result, 'thermal_radius_c', 0.0)),
+
             # derived output
             'heating_direct_mode': bool(getattr(result, 'heating_direct_mode', False)),
             'cooling_direct_mode': bool(getattr(result, 'cooling_direct_mode', False))
@@ -486,6 +501,17 @@ class ATESMonteCarloEngine:
             params.cooling_ave_injection_temp
         )
 
+    def _check_thermal_radius(self, params: ATESParameters, result: ATESResults) -> bool:
+        """
+        Feature B (eq37): thermal radius constraint. Returns True if the trial PASSES
+        (i.e. should be kept). When the constraint is disabled, always passes.
+        A trial is rejected if either plume thermal radius exceeds the maximum.
+        """
+        if not params.constrain_by_thermal_radius:
+            return True
+        return (result.thermal_radius_h <= params.max_thermal_radius and
+                result.thermal_radius_c <= params.max_thermal_radius)
+
     def _run_sequential_calculations(self, parameter_samples: pd.DataFrame, 
                                progress_callback: Optional[Callable[[int, int], None]] = None) -> pd.DataFrame:
         """
@@ -505,7 +531,12 @@ class ATESMonteCarloEngine:
                     result_dict['success'] = False
                     result_dict['rejection_reason'] = 'non_physical_eq31'
 
-               
+                # Eq37 check: thermal radius constraint (Feature B)
+                if not self._check_thermal_radius(params, result):
+                    result_dict['success'] = False
+                    result_dict['rejection_reason'] = 'thermal_radius'
+
+
                 for param_name in ['aquifer_temp', 'thermal_recovery_factor',
                                 'heating_target_avg_flowrate_pd', 'tolerance_in_energy_balance',
                                 'tolerance_in_thermal_recovery', 'tolerance_in_volume_balance',
@@ -514,9 +545,10 @@ class ATESMonteCarloEngine:
                                 'cooling_temp_to_building', 'pump_energy_density',
                                 'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
                                 'carbon_intensity', 'water_density', 'water_specific_heat_capacity',
-                                 'heating_number_of_doublets','thermal_recovery_factor_c','cooling_target_avg_flowrate_pd']:
+                                 'heating_number_of_doublets','thermal_recovery_factor_c','cooling_target_avg_flowrate_pd',
+                                 'screen_length','aquifer_porosity','rock_specific_heat_capacity','rock_density','max_thermal_radius']:
                     result_dict[f'input_{param_name}'] = getattr(params, param_name, None)
-                    
+
             except Exception as e:
                 result_dict = self._create_error_result(i, str(e))
             
@@ -546,7 +578,12 @@ class ATESMonteCarloEngine:
                     result_dict['success'] = False
                     result_dict['rejection_reason'] = 'non_physical_eq31'
 
-                
+                # Eq37 check: thermal radius constraint (Feature B)
+                if not self._check_thermal_radius(params, result):
+                    result_dict['success'] = False
+                    result_dict['rejection_reason'] = 'thermal_radius'
+
+
                 for param_name in ['aquifer_temp', 'thermal_recovery_factor',
                                 'heating_target_avg_flowrate_pd', 'tolerance_in_energy_balance',
                                 'tolerance_in_thermal_recovery', 'tolerance_in_volume_balance',
@@ -555,7 +592,8 @@ class ATESMonteCarloEngine:
                                 'cooling_temp_to_building', 'pump_energy_density',
                                 'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
                                 'carbon_intensity', 'water_density', 'water_specific_heat_capacity',
-                                'heating_number_of_doublets','thermal_recovery_factor_c','cooling_target_avg_flowrate_pd',]:
+                                'heating_number_of_doublets','thermal_recovery_factor_c','cooling_target_avg_flowrate_pd',
+                                'screen_length','aquifer_porosity','rock_specific_heat_capacity','rock_density','max_thermal_radius']:
                     result_dict[f'input_{param_name}'] = getattr(params, param_name, None)
 
                 chunk_results.append(result_dict)

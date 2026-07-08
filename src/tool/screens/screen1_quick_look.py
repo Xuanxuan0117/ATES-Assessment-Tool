@@ -5,6 +5,7 @@ import streamlit as st
 import pandas as pd
 import time
 import json
+from dataclasses import fields
 
 # Import calculator and utilities
 from tool.core.ates_calculator import ATESParameters, ATESCalculator
@@ -44,7 +45,9 @@ def update_all_parameters_from_temp():
         ('tolerance_in_volume_balance', '_temp_tolerance_in_volume_balance'),
         
         # B. System Operational Parameters
+        ('specify_cooling_flowrate', '_temp_specify_cooling_flowrate'),
         ('heating_target_avg_flowrate_pd', '_temp_heating_target_avg_flowrate_pd'),
+        ('cooling_target_avg_flowrate_pd', '_temp_cooling_target_avg_flowrate_pd'),
         ('tolerance_in_energy_balance', '_temp_tolerance_in_energy_balance'),
         ('heating_number_of_doublets', '_temp_heating_number_of_doublets'),
         ('heating_days', '_temp_heating_days'),
@@ -63,6 +66,14 @@ def update_all_parameters_from_temp():
         # D. Cooling Side Parameters
         ('cooling_ave_injection_temp', '_temp_cooling_ave_injection_temp'),
         ('cooling_temp_to_building', '_temp_cooling_temp_to_building'),
+
+        # F. Thermal radius parameters (Feature B)
+        ('constrain_by_thermal_radius', '_temp_constrain_by_thermal_radius'),
+        ('screen_length', '_temp_screen_length'),
+        ('aquifer_porosity', '_temp_aquifer_porosity'),
+        ('rock_specific_heat_capacity', '_temp_rock_specific_heat_capacity'),
+        ('rock_density', '_temp_rock_density'),
+        ('max_thermal_radius', '_temp_max_thermal_radius'),
     ]
     
     # Check if any parameter has changed
@@ -78,7 +89,7 @@ def update_all_parameters_from_temp():
                 if old_value != new_value:
                     setattr(st.session_state.ates_params, param_name, new_value)
                     has_changes = True
-            elif param_name == 'use_volume_balance':     
+            elif param_name in ('use_volume_balance', 'specify_cooling_flowrate', 'constrain_by_thermal_radius'):
                 if old_value != new_value:
                     setattr(st.session_state.ates_params, param_name, bool(new_value))
                     has_changes = True
@@ -133,9 +144,11 @@ def sync_all_params_to_distributions():
         'heating_days', 'cooling_days', 'pump_energy_density',
         'heating_ave_injection_temp', 'heating_temp_to_building',
         'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d', 'carbon_intensity',
-        'cooling_ave_injection_temp', 'cooling_temp_to_building'
+        'cooling_ave_injection_temp', 'cooling_temp_to_building',
+        'screen_length', 'aquifer_porosity', 'rock_specific_heat_capacity',
+        'rock_density', 'max_thermal_radius'
     ]
-    
+
     for param_name in param_names:
         if param_name in st.session_state.param_distributions:
             current_value = getattr(st.session_state.ates_params, param_name)
@@ -156,9 +169,11 @@ def initialize_default_distributions():
             'heating_days', 'cooling_days', 'pump_energy_density', 
             'heating_ave_injection_temp', 'heating_temp_to_building',
             'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
-            'carbon_intensity', 'cooling_ave_injection_temp', 'cooling_temp_to_building'
+            'carbon_intensity', 'cooling_ave_injection_temp', 'cooling_temp_to_building',
+            'screen_length', 'aquifer_porosity', 'rock_specific_heat_capacity',
+            'rock_density', 'max_thermal_radius'
         ]
-        
+
         for param_name in probabilistic_params:
             if hasattr(params, param_name):
                 current_value = getattr(params, param_name)
@@ -180,6 +195,23 @@ def initialize_default_distributions():
     #     sync_all_params_to_distributions()
 
 # Parameter input sections
+
+def calculate_flowrate_preview(**overrides):
+    """
+    Preview Feature A dependent flowrate without mutating session state or distributions.
+    """
+    base_params = st.session_state.ates_params
+    param_values = {
+        field.name: getattr(base_params, field.name)
+        for field in fields(ATESParameters)
+        if field.init and hasattr(base_params, field.name)
+    }
+    param_values.update(overrides)
+    preview_params = ATESParameters(**param_values)
+    if preview_params.specify_cooling_flowrate:
+        return preview_params.heating_target_avg_flowrate_pd
+    return preview_params.cooling_target_avg_flowrate_pd
+
 
 def render_parameter_section_a():
     """
@@ -293,19 +325,60 @@ def render_parameter_section_c():
     v = st.session_state.get('input_widget_version', 0)
     
     with st.expander("C. System Operation", expanded=False):
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            heating_target_avg_flowrate_pd = st.number_input(
-                "Target Flow Rate Heating (m³/hr)",
-                value=float(st.session_state.ates_params.heating_target_avg_flowrate_pd),
-                min_value=0.01,
-                step=1.0,
+        # Feature A: choose which flowrate the user specifies (the other is computed + capped)
+        specify_choice = st.radio(
+            "Specify flowrate",
+            options=["Warm flowrate (compute cool)", "Cool flowrate (compute warm)"],
+            index=1 if bool(st.session_state.ates_params.specify_cooling_flowrate) else 0,
+            help="The specified rate is treated as the maximum; the computed rate magnitude is capped to it.",
+            key=f"specify_flowrate_choice_v{v}",
+            horizontal=True,
+        )
+        specify_cooling_flowrate = specify_choice.startswith("Cool")
+
+        flow_col, recovery_col = st.columns(2)
+
+        with flow_col:
+            if not specify_cooling_flowrate:
+                heating_target_avg_flowrate_pd = st.number_input(
+                    "Target Flow Rate Heating (m³/hr)",
+                    value=float(st.session_state.ates_params.heating_target_avg_flowrate_pd),
+                    min_value=0.01,
+                    step=1.0,
+                    format="%.2f",
+                    help="Target (warm) flow rate per doublet for heating",
+                    key=f"heating_target_avg_flowrate_pd_v{v}"
+                )
+                cooling_target_avg_flowrate_pd = float(st.session_state.ates_params.cooling_target_avg_flowrate_pd)
+            else:
+                cooling_target_avg_flowrate_pd = st.number_input(
+                    "Target Flow Rate Cooling (m³/hr)",
+                    value=float(st.session_state.ates_params.cooling_target_avg_flowrate_pd) or 60.0,
+                    min_value=0.01,
+                    step=1.0,
+                    format="%.2f",
+                    help="Target (cool) flow rate per doublet for cooling",
+                    key=f"cooling_target_avg_flowrate_pd_v{v}"
+                )
+                heating_target_avg_flowrate_pd = float(st.session_state.ates_params.heating_target_avg_flowrate_pd)
+
+        with recovery_col:
+            thermal_recovery_factor = st.number_input(
+                "Thermal Recovery Factor (-)",
+                value=float(st.session_state.ates_params.thermal_recovery_factor),
+                min_value=0.0,
+                max_value=1.0,
+                step=0.01,
                 format="%.2f",
-                help="Target flow rate for heating per borehole",
-                key=f"heating_target_avg_flowrate_pd_v{v}"
+                help="Thermal recovery efficiency",
+                key=f"thermal_recovery_factor_v{v}"
             )
-            
+
+        flowrate_preview_slot = st.empty()
+
+        col1, col2 = st.columns(2)
+
+        with col1:
             heating_number_of_doublets = st.number_input(
                 "Number of Doublets",
                 value=int(st.session_state.ates_params.heating_number_of_doublets),
@@ -328,17 +401,6 @@ def render_parameter_section_c():
                 st.warning("⚠️ Cool well injection temperature must be < aquifer temperature")
         
         with col2:
-            thermal_recovery_factor = st.number_input(
-                "Thermal Recovery Factor (-)",
-                value=float(st.session_state.ates_params.thermal_recovery_factor),
-                min_value=0.0,
-                max_value=1.0,
-                step=0.01,
-                format="%.2f",
-                help="Thermal recovery efficiency",
-                key=f"thermal_recovery_factor_v{v}"
-            )
-            
             tolerance_in_energy_balance = st.number_input(
                 "Energy Balance Tolerance (-)",
                 value=float(st.session_state.ates_params.tolerance_in_energy_balance),
@@ -360,7 +422,15 @@ def render_parameter_section_c():
             if cooling_ave_injection_temp <= st.session_state.ates_params.aquifer_temp:
                 st.warning("⚠️ Warm well injection temperature must be > aquifer temperature")
 
-        
+        _, volume_toggle_col = st.columns(2)
+        with volume_toggle_col:
+            use_volume_balance = st.checkbox(
+                "Use Volume Balance for Cooling Flow Rate",
+                value=bool(st.session_state.ates_params.use_volume_balance),
+                help="If checked, uses volume balance; otherwise uses energy balance",
+                key=f"use_volume_balance_v{v}"
+            )
+
         col3, col4 = st.columns(2)
 
         with col3:
@@ -376,13 +446,6 @@ def render_parameter_section_c():
             )
 
         with col4:
-            use_volume_balance = st.checkbox(
-                "Use Volume Balance for Cooling Flow Rate",
-                value=bool(st.session_state.ates_params.use_volume_balance),
-                help="If checked, uses volume balance; otherwise uses energy balance",
-                key=f"use_volume_balance_v{v}"
-            )
-
             if use_volume_balance:
                 tolerance_in_volume_balance = st.number_input(
                     "Volume Balance Tolerance εVBR (-)",
@@ -394,7 +457,32 @@ def render_parameter_section_c():
             else:
                 tolerance_in_volume_balance = st.session_state.ates_params.tolerance_in_volume_balance
 
+        try:
+            preview_flowrate = calculate_flowrate_preview(
+                aquifer_temp=st.session_state.get('_temp_aquifer_temp', st.session_state.ates_params.aquifer_temp),
+                thermal_recovery_factor=thermal_recovery_factor,
+                tolerance_in_thermal_recovery=tolerance_in_thermal_recovery,
+                use_volume_balance=use_volume_balance,
+                tolerance_in_volume_balance=tolerance_in_volume_balance,
+                specify_cooling_flowrate=specify_cooling_flowrate,
+                heating_target_avg_flowrate_pd=heating_target_avg_flowrate_pd,
+                cooling_target_avg_flowrate_pd=cooling_target_avg_flowrate_pd,
+                tolerance_in_energy_balance=tolerance_in_energy_balance,
+                heating_days=st.session_state.get('_temp_heating_days', st.session_state.ates_params.heating_days),
+                cooling_days=st.session_state.get('_temp_cooling_days', st.session_state.ates_params.cooling_days),
+                heating_ave_injection_temp=heating_ave_injection_temp,
+                cooling_ave_injection_temp=cooling_ave_injection_temp,
+            )
+            if specify_cooling_flowrate:
+                flowrate_preview_slot.caption(f"Computed warm flow rate: {preview_flowrate:.2f} m³/hr (capped)")
+            else:
+                flowrate_preview_slot.caption(f"Computed cool flow rate: {preview_flowrate:.2f} m³/hr (capped)")
+        except Exception:
+            flowrate_preview_slot.caption("Computed flow rate preview unavailable for the current inputs.")
+
+        st.session_state['_temp_specify_cooling_flowrate'] = specify_cooling_flowrate
         st.session_state['_temp_heating_target_avg_flowrate_pd'] = heating_target_avg_flowrate_pd
+        st.session_state['_temp_cooling_target_avg_flowrate_pd'] = cooling_target_avg_flowrate_pd
         st.session_state['_temp_heating_number_of_doublets'] = heating_number_of_doublets
         st.session_state['_temp_thermal_recovery_factor'] = thermal_recovery_factor
         st.session_state['_temp_tolerance_in_energy_balance'] = tolerance_in_energy_balance
@@ -496,10 +584,10 @@ def render_parameter_section_e():
                 help="Water Density × Water Specific Heat"
             )
             st.text_input(
-                "Thermal Recovery Factor Cooling RT,c (-)",
+                "Thermal Recovery Factor Cooling (-)",
                 value=f"{st.session_state.ates_params.thermal_recovery_factor_c:.4f}",
                 disabled=True,
-                help="RT,c = (1 + εRT) × RT,h"
+                help="Calculated from the heating thermal recovery factor and thermal recovery tolerance"
             )
             
             
@@ -541,6 +629,75 @@ def render_parameter_section_e():
 
 
 
+def render_parameter_section_f():
+    """
+    F. Thermal Radius Parameters (Feature B, paper eq 34-37)
+    """
+    v = st.session_state.get('input_widget_version', 0)
+
+    with st.expander("F. Thermal Radius", expanded=False):
+        constrain_by_thermal_radius = st.checkbox(
+            "Calculate thermal radius",
+            value=bool(st.session_state.ates_params.constrain_by_thermal_radius),
+            help="Compute warm/cool plume thermal radii. In Monte Carlo this also "
+                 "enables the maximum-thermal-radius rejection constraint.",
+            key=f"constrain_by_thermal_radius_v{v}"
+        )
+
+        if constrain_by_thermal_radius:
+            col1, col2 = st.columns(2)
+            with col1:
+                screen_length = st.number_input(
+                    "Borehole Screen Length (m)",
+                    value=float(st.session_state.ates_params.screen_length),
+                    min_value=0.01, step=1.0, format="%.2f",
+                    help="Average effective borehole screen length",
+                    key=f"screen_length_v{v}"
+                )
+                aquifer_porosity = st.number_input(
+                    "Aquifer Porosity (-)",
+                    value=float(st.session_state.ates_params.aquifer_porosity),
+                    min_value=0.0, max_value=1.0, step=0.01, format="%.3f",
+                    help="Average aquifer porosity",
+                    key=f"aquifer_porosity_v{v}"
+                )
+                max_thermal_radius = st.number_input(
+                    "Maximum Thermal Radius (m)",
+                    value=float(st.session_state.ates_params.max_thermal_radius),
+                    min_value=0.01, step=1.0, format="%.2f",
+                    help="Constraint threshold; trials exceeding this are rejected in Monte Carlo",
+                    key=f"max_thermal_radius_v{v}"
+                )
+            with col2:
+                rock_specific_heat_capacity = st.number_input(
+                    "Rock Specific Heat Capacity (J/kg/°C)",
+                    value=float(st.session_state.ates_params.rock_specific_heat_capacity),
+                    min_value=0.01, step=10.0, format="%.2f",
+                    help="Average aquifer rock specific heat capacity",
+                    key=f"rock_specific_heat_capacity_v{v}"
+                )
+                rock_density = st.number_input(
+                    "Rock Density (kg/m³)",
+                    value=float(st.session_state.ates_params.rock_density),
+                    min_value=0.01, step=10.0, format="%.2f",
+                    help="Average aquifer rock density",
+                    key=f"rock_density_v{v}"
+                )
+        else:
+            screen_length = float(st.session_state.ates_params.screen_length)
+            aquifer_porosity = float(st.session_state.ates_params.aquifer_porosity)
+            rock_specific_heat_capacity = float(st.session_state.ates_params.rock_specific_heat_capacity)
+            rock_density = float(st.session_state.ates_params.rock_density)
+            max_thermal_radius = float(st.session_state.ates_params.max_thermal_radius)
+
+        st.session_state['_temp_constrain_by_thermal_radius'] = constrain_by_thermal_radius
+        st.session_state['_temp_screen_length'] = screen_length
+        st.session_state['_temp_aquifer_porosity'] = aquifer_porosity
+        st.session_state['_temp_rock_specific_heat_capacity'] = rock_specific_heat_capacity
+        st.session_state['_temp_rock_density'] = rock_density
+        st.session_state['_temp_max_thermal_radius'] = max_thermal_radius
+
+
 def initialize_temp_variables_from_params():
     """
     Initialize temporary variables from ates_params
@@ -557,7 +714,9 @@ def initialize_temp_variables_from_params():
     st.session_state['_temp_tolerance_in_volume_balance'] = params.tolerance_in_volume_balance
     
     # B. System Operational Parameters
+    st.session_state['_temp_specify_cooling_flowrate'] = params.specify_cooling_flowrate
     st.session_state['_temp_heating_target_avg_flowrate_pd'] = params.heating_target_avg_flowrate_pd
+    st.session_state['_temp_cooling_target_avg_flowrate_pd'] = params.cooling_target_avg_flowrate_pd
     st.session_state['_temp_tolerance_in_energy_balance'] = params.tolerance_in_energy_balance
     st.session_state['_temp_heating_number_of_doublets'] = params.heating_number_of_doublets
     st.session_state['_temp_heating_days'] = params.heating_days
@@ -576,6 +735,14 @@ def initialize_temp_variables_from_params():
     # D. Cooling Side Parameters
     st.session_state['_temp_cooling_ave_injection_temp'] = params.cooling_ave_injection_temp
     st.session_state['_temp_cooling_temp_to_building'] = params.cooling_temp_to_building
+
+    # F. Thermal radius parameters (Feature B)
+    st.session_state['_temp_constrain_by_thermal_radius'] = params.constrain_by_thermal_radius
+    st.session_state['_temp_screen_length'] = params.screen_length
+    st.session_state['_temp_aquifer_porosity'] = params.aquifer_porosity
+    st.session_state['_temp_rock_specific_heat_capacity'] = params.rock_specific_heat_capacity
+    st.session_state['_temp_rock_density'] = params.rock_density
+    st.session_state['_temp_max_thermal_radius'] = params.max_thermal_radius
 
 
 
@@ -705,7 +872,7 @@ def render_heating_results(results):
             ("Total Flow Rate (m³/hr)", results.heating_total_flow_rate_m3hr, "m³/hr"),
             ("Total Flow Rate (l/s)", results.heating_total_flow_rate_ls, "l/s"),
             ("Total Flow Rate (m³/s)", results.heating_total_flow_rate_m3s, "m³/s"),
-            ("Average Production Temperature", results.heating_ave_production_temp, "°C"),
+            ("Average Production Temperature", results.heating_physical_production_temp, "°C"),
             ("Average Temperature Change Across Heat Exchanger", results.heating_ave_temp_change_across_HX, "°C"),
             ("Temperature Change Induced by HP", results.heating_temp_change_induced_HP, "°C"),
             ("Heat Pump COP", results.heating_heat_pump_COP, "-"),
@@ -806,7 +973,7 @@ def render_cooling_results(results):
             ("Total Flow Rate (m³/hr)", results.cooling_total_flow_rate_m3hr, "m³/hr"),
             ("Total Flow Rate (l/s)", results.cooling_total_flow_rate_ls, "l/s"),
             ("Total Flow Rate (m³/s)", results.cooling_total_flow_rate_m3s, "m³/s"),
-            ("Average Production Temperature", results.cooling_ave_production_temp, "°C"),
+            ("Average Production Temperature", results.cooling_physical_production_temp, "°C"),
             ("Average Temperature Change Across Heat Exchanger", results.cooling_ave_temp_change_across_HX, "°C"),
             ("Temperature Change Induced by HP", results.cooling_temp_change_induced_HP, "°C"),
             ("Heat Pump COP", results.cooling_heat_pump_COP, "-"),
@@ -920,6 +1087,31 @@ def render_system_balance_and_volumes(results, params):
         # st.dataframe(df_sustainability, width="stretch", hide_index=True)
 
 
+def render_thermal_radius_results(results, params):
+    """Render thermal radius results (Feature B)."""
+    with st.expander("Thermal Radius", expanded=True):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Warm Plume Radius",
+                      f"{results.thermal_radius_h:.2f} m",
+                      help="Thermal radius of the warm plume")
+        with col2:
+            st.metric("Cool Plume Radius",
+                      f"{results.thermal_radius_c:.2f} m",
+                      help="Thermal radius of the cool plume")
+        with col3:
+            st.metric("Max Allowed Thermal Radius",
+                      f"{params.max_thermal_radius:.2f} m",
+                      help="Constraint threshold")
+
+        exceeded = (results.thermal_radius_h > params.max_thermal_radius or
+                    results.thermal_radius_c > params.max_thermal_radius)
+        if exceeded:
+            st.warning("Thermal radius exceeds the maximum, this case would be rejected in Monte Carlo!")
+        else:
+            st.success("Thermal radius within the maximum constraint.")
+
+
 # MAIN APPLICATION
 
 def main():
@@ -961,6 +1153,7 @@ def main():
         render_parameter_section_c()
         render_parameter_section_d()
         render_parameter_section_e()
+        render_parameter_section_f()
         
         # Operation buttons
         st.markdown("### Operations")
@@ -1042,6 +1235,8 @@ def main():
             render_heating_results(results)
             render_cooling_results(results)
             render_system_balance_and_volumes(results, st.session_state.ates_params)
+            if st.session_state.ates_params.constrain_by_thermal_radius:
+                render_thermal_radius_results(results, st.session_state.ates_params)
 
 if __name__ == "__main__":
     main()

@@ -204,7 +204,7 @@ class ATESVisualizer:
                 'input_water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
                 'input_heating_number_of_doublets': 'Number of Doublets',
                 'input_thermal_recovery_factor': 'Thermal Recovery Factor (-)',
-                'input_thermal_recovery_factor_c': 'Thermal Recovery Factor Cooling RT,c (-)',
+                'input_thermal_recovery_factor_c': 'Thermal Recovery Factor Cooling (-)',
                 'input_heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
                 'input_tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
                 'input_tolerance_in_thermal_recovery': 'Thermal Recovery Tolerance εRT (-)',
@@ -222,6 +222,18 @@ class ATESVisualizer:
                 'input_cop_param_c': 'COP Parameter C (-)',
                 'input_cop_param_d': 'COP Parameter D (-)',
                 'input_carbon_intensity': 'Carbon Intensity (gCO₂/kWh)',
+                # Feature B - thermal radius parameters
+                'input_screen_length': 'Borehole Screen Length (m)',
+                'input_aquifer_porosity': 'Aquifer Porosity (-)',
+                'input_rock_specific_heat_capacity': 'Rock Specific Heat Capacity (J/kg/°C)',
+                'input_rock_density': 'Rock Density (kg/m³)',
+                'input_max_thermal_radius': 'Maximum Thermal Radius (m)',
+            },
+
+            'Thermal Radius Outputs': {
+                'thermal_radius_h': 'Warm Plume Thermal Radius (m)',
+                'thermal_radius_c': 'Cool Plume Thermal Radius (m)',
+                'aquifer_volumetric_heat_capacity': 'Aquifer Volumetric Heat Capacity (J/K/m³)',
             }
         }
         
@@ -239,7 +251,8 @@ class ATESVisualizer:
             'Cooling System - Heat Pump & Electrical': '#0D6EFD',
             'System Balance & Groundwater Volumes': '#7F7F7F',
             'System Balance & Overall': '#7F7F7F',
-            ' - Prior & Posterior': '#2CA02C'
+            ' - Prior & Posterior': '#2CA02C',
+            'Thermal Radius Outputs': '#9467BD'
         }
     
     def render_distribution_plots(self):

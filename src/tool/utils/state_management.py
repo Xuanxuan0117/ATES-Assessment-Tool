@@ -482,9 +482,12 @@ class ATESAppState:
             'heating_days', 'cooling_days', 'pump_energy_density',
             'heating_ave_injection_temp', 'heating_temp_to_building',
             'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
-            'carbon_intensity', 'cooling_ave_injection_temp', 'cooling_temp_to_building'
+            'carbon_intensity', 'cooling_ave_injection_temp', 'cooling_temp_to_building',
+            # Feature B - thermal radius parameters
+            'screen_length', 'aquifer_porosity', 'rock_specific_heat_capacity',
+            'rock_density', 'max_thermal_radius'
         ]
-        
+
         # Create default distributions - all parameters are fixed values
         for param_name in probabilistic_params:
             if hasattr(params, param_name):
@@ -765,10 +768,18 @@ class ATESAppState:
             'cop_param_d': 'COP Parameter D (-)',
             'carbon_intensity': 'Carbon Intensity (gCO₂/kWh)',
             'cooling_ave_injection_temp': 'Warm Well Injection Temperature (°C)',
-            'cooling_temp_to_building': 'Building Cooling Temperature (°C)'
+            'cooling_temp_to_building': 'Building Cooling Temperature (°C)',
+            'specify_cooling_flowrate': 'Specify Cooling Flowrate',
+            'cooling_target_avg_flowrate_pd': 'Target Flow Rate Cooling (m³/hr)',
+            'constrain_by_thermal_radius': 'Constrain by Thermal Radius',
+            'screen_length': 'Borehole Screen Length (m)',
+            'aquifer_porosity': 'Aquifer Porosity (-)',
+            'rock_specific_heat_capacity': 'Rock Specific Heat Capacity (J/kg/°C)',
+            'rock_density': 'Rock Density (kg/m³)',
+            'max_thermal_radius': 'Maximum Thermal Radius (m)'
         }
-        
-        # ATES parameters 
+
+        # ATES parameters
         if 'ates_params' in st.session_state:
             params = st.session_state.ates_params
             data['ates_parameters'] = {
@@ -793,7 +804,15 @@ class ATESAppState:
                 display_names['cop_param_d']: params.cop_param_d,
                 display_names['carbon_intensity']: params.carbon_intensity,
                 display_names['cooling_ave_injection_temp']: params.cooling_ave_injection_temp,
-                display_names['cooling_temp_to_building']: params.cooling_temp_to_building
+                display_names['cooling_temp_to_building']: params.cooling_temp_to_building,
+                display_names['specify_cooling_flowrate']: params.specify_cooling_flowrate,
+                display_names['cooling_target_avg_flowrate_pd']: params.cooling_target_avg_flowrate_pd,
+                display_names['constrain_by_thermal_radius']: params.constrain_by_thermal_radius,
+                display_names['screen_length']: params.screen_length,
+                display_names['aquifer_porosity']: params.aquifer_porosity,
+                display_names['rock_specific_heat_capacity']: params.rock_specific_heat_capacity,
+                display_names['rock_density']: params.rock_density,
+                display_names['max_thermal_radius']: params.max_thermal_radius
             }
         
         # Probability distributions 
@@ -946,7 +965,20 @@ class ATESAppState:
                 'COP Parameter D (-)': 'cop_param_d',
                 'Carbon Intensity (gCO₂/kWh)': 'carbon_intensity',
                 'Warm Well Injection Temperature (°C)': 'cooling_ave_injection_temp',
-                'Building Cooling Temperature (°C)': 'cooling_temp_to_building'
+                'Building Cooling Temperature (°C)': 'cooling_temp_to_building',
+                'Specify Cooling Flowrate': 'specify_cooling_flowrate',
+                'Target Flow Rate Cooling (m³/hr)': 'cooling_target_avg_flowrate_pd',
+                'Constrain by Thermal Radius': 'constrain_by_thermal_radius',
+                'Borehole Screen Length (m)': 'screen_length',
+                'Borehole Screen Length Ls (m)': 'screen_length',
+                'Aquifer Porosity (-)': 'aquifer_porosity',
+                'Aquifer Porosity φ (-)': 'aquifer_porosity',
+                'Rock Specific Heat Capacity (J/kg/°C)': 'rock_specific_heat_capacity',
+                'Rock Specific Heat Capacity cr (J/kg/°C)': 'rock_specific_heat_capacity',
+                'Rock Density (kg/m³)': 'rock_density',
+                'Rock Density ρr (kg/m³)': 'rock_density',
+                'Maximum Thermal Radius (m)': 'max_thermal_radius',
+                'Maximum Thermal Radius r_T,max (m)': 'max_thermal_radius'
             }
             
             params = ATESParameters()
@@ -956,7 +988,7 @@ class ATESAppState:
                     internal_key = reverse_names[key]
                 else:
                     internal_key = key
-                if internal_key == 'use_volume_balance':
+                if internal_key in ('use_volume_balance', 'specify_cooling_flowrate', 'constrain_by_thermal_radius'):
                     value = bool(value) if not isinstance(value, str) else value.lower() == 'true'
                 if hasattr(params, internal_key):
                     setattr(params, internal_key, value)
@@ -991,7 +1023,20 @@ class ATESAppState:
                         'COP Parameter D (-)': 'cop_param_d',
                         'Carbon Intensity (gCO₂/kWh)': 'carbon_intensity',
                         'Warm Well Injection Temperature (°C)': 'cooling_ave_injection_temp',
-                        'Building Cooling Temperature (°C)': 'cooling_temp_to_building'
+                        'Building Cooling Temperature (°C)': 'cooling_temp_to_building',
+                        'Specify Cooling Flowrate': 'specify_cooling_flowrate',
+                        'Target Flow Rate Cooling (m³/hr)': 'cooling_target_avg_flowrate_pd',
+                        'Constrain by Thermal Radius': 'constrain_by_thermal_radius',
+                        'Borehole Screen Length (m)': 'screen_length',
+                        'Borehole Screen Length Ls (m)': 'screen_length',
+                        'Aquifer Porosity (-)': 'aquifer_porosity',
+                        'Aquifer Porosity φ (-)': 'aquifer_porosity',
+                        'Rock Specific Heat Capacity (J/kg/°C)': 'rock_specific_heat_capacity',
+                        'Rock Specific Heat Capacity cr (J/kg/°C)': 'rock_specific_heat_capacity',
+                        'Rock Density (kg/m³)': 'rock_density',
+                        'Rock Density ρr (kg/m³)': 'rock_density',
+                        'Maximum Thermal Radius (m)': 'max_thermal_radius',
+                        'Maximum Thermal Radius r_T,max (m)': 'max_thermal_radius'
                     }
                     
                     # Convert back to internal names
@@ -1061,7 +1106,16 @@ class ATESAppState:
             ('cop_param_d', '_temp_cop_param_d'),
             ('carbon_intensity', '_temp_carbon_intensity'),
             ('cooling_ave_injection_temp', '_temp_cooling_ave_injection_temp'),
-            ('cooling_temp_to_building', '_temp_cooling_temp_to_building')
+            ('cooling_temp_to_building', '_temp_cooling_temp_to_building'),
+            # Feature A / B
+            ('specify_cooling_flowrate', '_temp_specify_cooling_flowrate'),
+            ('cooling_target_avg_flowrate_pd', '_temp_cooling_target_avg_flowrate_pd'),
+            ('constrain_by_thermal_radius', '_temp_constrain_by_thermal_radius'),
+            ('screen_length', '_temp_screen_length'),
+            ('aquifer_porosity', '_temp_aquifer_porosity'),
+            ('rock_specific_heat_capacity', '_temp_rock_specific_heat_capacity'),
+            ('rock_density', '_temp_rock_density'),
+            ('max_thermal_radius', '_temp_max_thermal_radius')
         ]
         
         for param_name, temp_key in temp_mappings:

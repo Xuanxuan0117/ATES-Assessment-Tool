@@ -21,6 +21,20 @@ class ATESParameters:
     use_volume_balance: bool = False                  # Energy (0) or volume balance (1) to determine cooling rate
     tolerance_in_volume_balance: float = 0.0          # εVBR
 
+    # Feature A - flowrate direction (paper eq 43-46)
+    # False (default): user specifies WARM flowrate (heating_target_avg_flowrate_pd) -> compute COOL.
+    # True:            user specifies COOL flowrate (cooling_target_avg_flowrate_pd) -> compute WARM.
+    # The specified rate is treated as the MAXIMUM, so the computed rate magnitude is capped to it.
+    specify_cooling_flowrate: bool = False
+
+    # Feature B - thermal radius constraint (paper eq 34-37)
+    screen_length: float = 50.0                       # Ls  - average effective borehole screen length (m)
+    aquifer_porosity: float = 0.3                     # phi - average aquifer porosity (-)
+    rock_specific_heat_capacity: float = 800.0        # cr  - aquifer rock specific heat capacity (J/kg/°C)
+    rock_density: float = 2650.0                      # rho_r - aquifer rock density (kg/m³)
+    max_thermal_radius: float = 100.0                 # r_T,max - maximum allowed thermal radius (m)
+    constrain_by_thermal_radius: bool = False         # toggle: compute / constrain thermal radius
+
     # B. System Operational Parameters
     heating_target_avg_flowrate_pd: float = 60.0      # D10 - qb,h Target average flow rate per doublet for heating (m³/hr)
     tolerance_in_energy_balance: float = 0.15         # D11 - εEBR Energy Balance Ratio tolerance (-)
@@ -49,8 +63,11 @@ class ATESParameters:
     water_volumetric_heat_capacity: float = 0.0       # D6  - cw Water volumetric heat capacity (J/K/m³)
     shoulder_days: float = 0.0                        # D19 - (-) Number of months which not heating and cooling (-)
     heating_total_produced_volume: float = 0.0        # D21 - Vp,h Total produced heating volume(m³)
-    thermal_recovery_factor_c: float = 0.0            # RT,c 
-    
+    thermal_recovery_factor_c: float = 0.0            # RT,c
+
+    # Feature B - derived
+    aquifer_volumetric_heat_capacity: float = 0.0     # caq (eq36) J/K/m³
+
     # turn on for direct calculation, off for monte-carlo
     _validation_enabled: bool = True
 
@@ -67,8 +84,15 @@ class ATESParameters:
 
          self.thermal_recovery_factor_c = (1 + self.tolerance_in_thermal_recovery) * self.thermal_recovery_factor
 
+         # caq (eq36): aquifer volumetric heat capacity
+         # caq = phi*cp*rho_w + (1-phi)*cr*rho_r ; note cp*rho_w == water_volumetric_heat_capacity (cw)
+         self.aquifer_volumetric_heat_capacity = (
+             self.aquifer_porosity * self.water_volumetric_heat_capacity +
+             (1 - self.aquifer_porosity) * self.rock_specific_heat_capacity * self.rock_density
+         )
+
          # G-column auto-calculations
-          # G10 calculation(calculate cooling target average flowrate per doublet)
+          # G10 calculation(calculate the COMPUTED flowrate depending on direction, with cap)
          self.calculate_g10()
 
           # G15 = D14 (cooling number of doublets = heating number of doublets)
@@ -92,30 +116,60 @@ class ATESParameters:
         cls._validation_enabled = True
 
     def calculate_g10(self):
-        if self.use_volume_balance:
-            # Eq38 - Volume balance
-            if self.cooling_days <= 0:
-                raise ValueError("Cooling days must be > 0 for volume balance calculation.")
-            self.cooling_target_avg_flowrate_pd = (
-                (1 + self.tolerance_in_volume_balance) *
-                self.heating_target_avg_flowrate_pd *
-                self.heating_days / self.cooling_days
-            )
+        """
+        Compute the dependent flowrate (per doublet) from the specified one, with a magnitude cap.
+
+        Two directions (Feature A, paper eq 43-46). The code stores both flowrates as POSITIVE
+        magnitudes, whereas the paper uses signed quantities (specified rate negative, computed
+        rate positive). Translating the paper's outer ``min(value, -q_specified)`` cap into the
+        code's positive convention yields a ``min(formula, q_specified)`` magnitude cap, which is
+        what is implemented below. The cap is non-binding in the typical (verified) case.
+        """
+        if not self.specify_cooling_flowrate:
+            # ---- Specify WARM (q_h), compute COOL (q_c). Paper eq 43 / 44. ----
+            q_h = self.heating_target_avg_flowrate_pd
+            if self.use_volume_balance:
+                # eq44 - volume balance
+                if self.cooling_days <= 0:
+                    raise ValueError("Cooling days must be > 0 for volume balance calculation.")
+                formula = (
+                    (1 + self.tolerance_in_volume_balance) *
+                    q_h * self.heating_days / self.cooling_days
+                )
+            else:
+                # eq43 - energy balance (RT,c in numerator, RT,h in denominator)
+                numerator = ((self.aquifer_temp - self.heating_ave_injection_temp) * self.heating_days +
+                            self.thermal_recovery_factor_c * (self.heating_ave_injection_temp - self.aquifer_temp) * self.heating_days)
+                denominator = ((self.aquifer_temp - self.cooling_ave_injection_temp) * self.cooling_days +
+                            self.thermal_recovery_factor * (self.cooling_ave_injection_temp - self.aquifer_temp) * self.cooling_days)
+                if abs(denominator) < 1e-10:
+                    raise ValueError("Denominator for G10 calculation is close to zero. Please check temperature parameters.")
+                formula = -((1 + self.tolerance_in_energy_balance) * q_h * (numerator / denominator))
+            # cap: computed cool magnitude cannot exceed specified warm rate
+            self.cooling_target_avg_flowrate_pd = min(formula, q_h)
         else:
-            # Eq37 - Energy balance
-            numerator = ((self.aquifer_temp - self.heating_ave_injection_temp) * self.heating_days +
-                        self.thermal_recovery_factor_c * (self.heating_ave_injection_temp - self.aquifer_temp) * self.heating_days)
+            # ---- Specify COOL (q_c), compute WARM (q_h). Paper eq 45 / 46 (note 1-eps). ----
+            q_c = self.cooling_target_avg_flowrate_pd
+            if self.use_volume_balance:
+                # eq46 - volume balance
+                if self.heating_days <= 0:
+                    raise ValueError("Heating days must be > 0 for volume balance calculation.")
+                formula = (
+                    (1 - self.tolerance_in_volume_balance) *
+                    q_c * self.cooling_days / self.heating_days
+                )
+            else:
+                # eq45 - energy balance (RT,h in numerator, RT,c in denominator)
+                numerator = ((self.aquifer_temp - self.cooling_ave_injection_temp) * self.cooling_days +
+                            self.thermal_recovery_factor * (self.cooling_ave_injection_temp - self.aquifer_temp) * self.cooling_days)
+                denominator = ((self.aquifer_temp - self.heating_ave_injection_temp) * self.heating_days +
+                            self.thermal_recovery_factor_c * (self.heating_ave_injection_temp - self.aquifer_temp) * self.heating_days)
+                if abs(denominator) < 1e-10:
+                    raise ValueError("Denominator for G10 calculation is close to zero. Please check temperature parameters.")
+                formula = -((1 - self.tolerance_in_energy_balance) * q_c * (numerator / denominator))
+            # cap: computed warm magnitude cannot exceed specified cool rate
+            self.heating_target_avg_flowrate_pd = min(formula, q_c)
 
-            denominator = ((self.aquifer_temp - self.cooling_ave_injection_temp) * self.cooling_days +
-                        self.thermal_recovery_factor * (self.cooling_ave_injection_temp - self.aquifer_temp) * self.cooling_days)
-
-            if abs(denominator) < 1e-10:
-                raise ValueError("Denominator for G10 calculation is close to zero. Please check temperature parameters.")
-
-            self.cooling_target_avg_flowrate_pd = -((1 + self.tolerance_in_energy_balance) *
-                                            self.heating_target_avg_flowrate_pd *
-                                            (numerator / denominator))
-        
     def calculate_volumes(self):
         """
         Calculates D21 (Total produced heating volume) and G21 (Total produced cooling volume).
@@ -224,6 +278,19 @@ class ATESParameters:
         if self.cooling_total_produced_volume < 0:
             raise ValueError(f"Total produced cooling volume cannot be negative. Got {self.cooling_total_produced_volume}.")
 
+        # F. Thermal radius parameters (Feature B)
+        if self.constrain_by_thermal_radius:
+            if self.screen_length <= 0:
+                raise ValueError(f"Screen length (Ls) must be positive. Got {self.screen_length}.")
+            if not (0 <= self.aquifer_porosity <= 1):
+                raise ValueError(f"Aquifer porosity must be between 0 and 1. Got {self.aquifer_porosity}.")
+            if self.rock_specific_heat_capacity <= 0:
+                raise ValueError(f"Rock specific heat capacity must be positive. Got {self.rock_specific_heat_capacity}.")
+            if self.rock_density <= 0:
+                raise ValueError(f"Rock density must be positive. Got {self.rock_density}.")
+            if self.max_thermal_radius <= 0:
+                raise ValueError(f"Maximum thermal radius must be positive. Got {self.max_thermal_radius}.")
+
 @dataclass
 class ATESResults:
     """
@@ -306,6 +373,11 @@ class ATESResults:
     cooling_physical_production_temp: float = 0.0       # N10 physical value before direct mode override
     heating_physical_production_temp: float = 0.0       # K10 physical value
 
+    # Feature B - thermal radius (paper eq 34-37)
+    aquifer_volumetric_heat_capacity: float = 0.0       # caq (eq36) J/K/m³
+    thermal_radius_h: float = 0.0                       # r_T,h warm plume thermal radius (m) - eq34
+    thermal_radius_c: float = 0.0                       # r_T,c cool plume thermal radius (m) - eq35
+
 class ATESCalculator:
     """
     ATES System Calculator
@@ -337,7 +409,36 @@ class ATESCalculator:
         # calculate balance ratios
         self._calculate_balance_ratios()
 
+        # Feature B - thermal radius (eq34/35/36)
+        self._calculate_thermal_radius()
+
         return self.results
+
+    def _calculate_thermal_radius(self):
+        """
+        Compute aquifer volumetric heat capacity (eq36) and the warm/cool plume thermal
+        radii (eq34/35). Ap = pi*rT^2 is the plume cross-sectional area, hence the sqrt form:
+            r_T = sqrt( cw * Vp / (caq * pi * nb * Ls) )
+        """
+        import math
+        p = self.params
+        r = self.results
+
+        caq = p.aquifer_volumetric_heat_capacity
+        r.aquifer_volumetric_heat_capacity = caq
+
+        nb = p.heating_number_of_doublets
+        ls = p.screen_length
+        denom = caq * math.pi * nb * ls
+        if denom <= 0:
+            r.thermal_radius_h = 0.0
+            r.thermal_radius_c = 0.0
+            return
+
+        vh = max(p.heating_total_produced_volume, 0.0)
+        vc = max(p.cooling_total_produced_volume, 0.0)
+        r.thermal_radius_h = math.sqrt(p.water_volumetric_heat_capacity * vh / denom)
+        r.thermal_radius_c = math.sqrt(p.water_volumetric_heat_capacity * vc / denom)
     
     def _calculate_heating_outputs(self):
         """

@@ -30,6 +30,7 @@ def initialize_probabilistic_session_state():
             st.warning(f"Distribution initialization warning: {e}")
             st.session_state.param_distributions = {}
             initialize_distributions_from_ates_params()
+    ensure_distribution_parameter('cooling_target_avg_flowrate_pd')
     
     if 'monte_carlo_results' not in st.session_state:
         st.session_state.monte_carlo_results = None
@@ -49,6 +50,26 @@ def initialize_probabilistic_session_state():
     if 'stable_param_values' not in st.session_state:
         st.session_state.stable_param_values = {}
 
+def ensure_distribution_parameter(param_name: str) -> None:
+    """Add a missing distribution entry when an existing session predates a new parameter."""
+    if param_name in st.session_state.param_distributions:
+        return
+    if not hasattr(st.session_state.ates_params, param_name):
+        return
+
+    current_value = getattr(st.session_state.ates_params, param_name)
+    st.session_state.param_distributions[param_name] = {
+        'type': 'single_value',
+        'value': current_value,
+        'min': current_value * 0.8,
+        'max': current_value * 1.2,
+        'most_likely': current_value,
+        'mean': current_value,
+        'std': max(current_value * 0.1, 0.01),
+        'location': 0.0,
+        'use_log_params': False,
+    }
+
 def initialize_distributions_from_ates_params() -> None:
     """Initialize distributions directly from ATES parameters"""
     params = st.session_state.ates_params
@@ -57,12 +78,16 @@ def initialize_distributions_from_ates_params() -> None:
     probabilistic_params = [
         'aquifer_temp', 'water_density', 'water_specific_heat_capacity',
         'thermal_recovery_factor', 'heating_target_avg_flowrate_pd',
+        'cooling_target_avg_flowrate_pd',
         'tolerance_in_energy_balance', 'tolerance_in_thermal_recovery',
         'tolerance_in_volume_balance','heating_number_of_doublets',
         'heating_days', 'cooling_days', 'pump_energy_density',
         'heating_ave_injection_temp', 'heating_temp_to_building',
         'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
-        'carbon_intensity', 'cooling_ave_injection_temp', 'cooling_temp_to_building'
+        'carbon_intensity', 'cooling_ave_injection_temp', 'cooling_temp_to_building',
+        # Feature B - thermal radius parameters
+        'screen_length', 'aquifer_porosity', 'rock_specific_heat_capacity',
+        'rock_density', 'max_thermal_radius'
     ]
     
     for param_name in probabilistic_params:
@@ -90,12 +115,16 @@ def initialize_distributions() -> Dict[str, Dict[str, Any]]:
     probabilistic_params = [
         'aquifer_temp', 'water_density', 'water_specific_heat_capacity',
         'thermal_recovery_factor', 'heating_target_avg_flowrate_pd',
+        'cooling_target_avg_flowrate_pd',
         'tolerance_in_energy_balance', 'tolerance_in_thermal_recovery',
         'tolerance_in_volume_balance','heating_number_of_doublets',
         'heating_days', 'cooling_days', 'pump_energy_density',
         'heating_ave_injection_temp', 'heating_temp_to_building',
         'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
-        'carbon_intensity', 'cooling_ave_injection_temp', 'cooling_temp_to_building'
+        'carbon_intensity', 'cooling_ave_injection_temp', 'cooling_temp_to_building',
+        # Feature B - thermal radius parameters
+        'screen_length', 'aquifer_porosity', 'rock_specific_heat_capacity',
+        'rock_density', 'max_thermal_radius'
     ]
     
     for param_name in probabilistic_params:
@@ -447,24 +476,28 @@ def render_parameter_groups_tabs():
     """
     Render parameter configuration in organized tabs
     """
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "Physical Parameters",           # Section A
         "Demand Parameters",              # Section B
         "System Operation",               # Section C
-        "Heat Pump and Carbon Intensity"  # Section D
+        "Heat Pump and Carbon Intensity", # Section D
+        "Thermal Radius"                  # Section F
     ])
-    
+
     with tab1:
         render_physical_parameters()
-    
+
     with tab2:
-        render_demand_parameters()  
-    
+        render_demand_parameters()
+
     with tab3:
-        render_operational_parameters()  
-    
+        render_operational_parameters()
+
     with tab4:
-        render_heatpump_parameters()  
+        render_heatpump_parameters()
+
+    with tab5:
+        render_thermal_radius_parameters()
 
 def render_physical_parameters():
     """
@@ -520,6 +553,7 @@ def render_operational_parameters():
     
     operational_params = [
         'heating_target_avg_flowrate_pd',
+        'cooling_target_avg_flowrate_pd',
         'heating_number_of_doublets',
         'heating_ave_injection_temp',
         'thermal_recovery_factor',
@@ -531,6 +565,7 @@ def render_operational_parameters():
     
     param_labels = {
         'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
+        'cooling_target_avg_flowrate_pd': 'Target Flow Rate Cooling (m³/hr)',
         'heating_number_of_doublets': 'Number of Doublets (-)',
         'heating_ave_injection_temp': 'Cool well injection temperature (°C)',
         'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
@@ -569,6 +604,35 @@ def render_heatpump_parameters():
     }
     
     for param in heatpump_params:
+        if param in st.session_state.param_distributions:
+            render_parameter_config(param, param_labels[param])
+
+
+def render_thermal_radius_parameters():
+    """
+    Render thermal radius parameters section (Feature B, Section F)
+    """
+    st.subheader("Thermal Radius")
+    st.caption("Enable 'Calculate thermal radius' in Quick Look (Section F) to apply the "
+               "maximum-thermal-radius rejection constraint during Monte Carlo.")
+
+    thermal_params = [
+        'screen_length',
+        'aquifer_porosity',
+        'rock_specific_heat_capacity',
+        'rock_density',
+        'max_thermal_radius'
+    ]
+
+    param_labels = {
+        'screen_length': 'Borehole Screen Length (m)',
+        'aquifer_porosity': 'Aquifer Porosity (-)',
+        'rock_specific_heat_capacity': 'Rock Specific Heat Capacity (J/kg/°C)',
+        'rock_density': 'Rock Density (kg/m³)',
+        'max_thermal_radius': 'Maximum Thermal Radius (m)'
+    }
+
+    for param in thermal_params:
         if param in st.session_state.param_distributions:
             render_parameter_config(param, param_labels[param])
 
@@ -753,6 +817,7 @@ def render_enabled_parameters_summary():
         'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
         'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
         'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
+        'cooling_target_avg_flowrate_pd': 'Target Flow Rate Cooling (m³/hr)',
         'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
         'tolerance_in_thermal_recovery': 'Thermal Recovery Tolerance εRT (-)',
         'tolerance_in_volume_balance': 'Volume Balance Tolerance εVBR (-)',
