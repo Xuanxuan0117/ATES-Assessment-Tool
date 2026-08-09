@@ -141,11 +141,35 @@ class ATESMonteCarloEngine:
         samples = {}
         
         for param_name, dist_config in parameter_distributions.items():
+            if (
+                'borehole_flow_rate' in parameter_distributions
+                and param_name in ('heating_target_avg_flowrate_pd', 'cooling_target_avg_flowrate_pd')
+            ):
+                continue
+            if (
+                'balance_tolerance' in parameter_distributions
+                and param_name in ('tolerance_in_energy_balance', 'tolerance_in_volume_balance')
+            ):
+                continue
+
+            sampled_param_name = param_name
+            if param_name == 'borehole_flow_rate':
+                sampled_param_name = (
+                    'cooling_target_avg_flowrate_pd'
+                    if self.config.specify_cooling_flowrate
+                    else 'heating_target_avg_flowrate_pd'
+                )
+            elif param_name == 'balance_tolerance':
+                sampled_param_name = (
+                    'tolerance_in_volume_balance'
+                    if self.config.use_volume_balance
+                    else 'tolerance_in_energy_balance'
+                )
             dist_type = dist_config['type']
             
             if dist_type == 'single_value':
                 
-                samples[param_name] = np.full(
+                samples[sampled_param_name] = np.full(
                     self.config.iterations, 
                     dist_config['value'], 
                     dtype=np.float64
@@ -163,7 +187,7 @@ class ATESMonteCarloEngine:
                     location=float(dist_config.get('location', 0.0)),
                     use_log_params=bool(dist_config.get('use_log_params', False))
                 )
-                samples[param_name] = ParameterSampler.sample_parameter(
+                samples[sampled_param_name] = ParameterSampler.sample_parameter(
                     dist_params, self.config.iterations, rng
                 )
         
@@ -243,7 +267,7 @@ class ATESMonteCarloEngine:
         params.__post_init__()
         return params
 
-    def _extract_results(self, result: ATESResults, iteration: int) -> Dict[str, Any]:
+    def _extract_results(self, result: ATESResults, iteration: int, params: ATESParameters) -> Dict[str, Any]:
         """
         extract ALL 62 results from ATESResults object with enhanced anomaly classification
         """
@@ -266,10 +290,12 @@ class ATESMonteCarloEngine:
             # HEATING OUTPUTS (K Column) - 32 parameters
             'heating_total_energy_stored': float(result.heating_total_energy_stored),                           # K3
             'heating_stored_energy_recovered': float(result.heating_stored_energy_recovered),                     # K4
+            'heating_target_avg_flowrate_pd': float(params.heating_target_avg_flowrate_pd),                       # D10
             'heating_total_flow_rate_m3hr': float(result.heating_total_flow_rate_m3hr),                          # K6
             'heating_total_flow_rate_ls': float(result.heating_total_flow_rate_ls),                              # K7
             'heating_total_flow_rate_m3s': float(result.heating_total_flow_rate_m3s),                            # K8
             'heating_ave_production_temp': float(result.heating_ave_production_temp),                            # K10
+            'heating_physical_production_temp': float(result.heating_physical_production_temp),                  # K10 physical
             'heating_ave_temp_change_across_HX': float(result.heating_ave_temp_change_across_HX),                # K11
             'heating_temp_change_induced_HP': float(result.heating_temp_change_induced_HP),                      # K12
             'heating_heat_pump_COP': float(result.heating_heat_pump_COP),                                        # K13
@@ -306,6 +332,7 @@ class ATESMonteCarloEngine:
             'cooling_total_flow_rate_ls': float(result.cooling_total_flow_rate_ls),                              # N7
             'cooling_total_flow_rate_m3s': float(result.cooling_total_flow_rate_m3s),                            # N8
             'cooling_ave_production_temp': float(result.cooling_ave_production_temp),                            # N10
+            'cooling_physical_production_temp': float(result.cooling_physical_production_temp),                  # N10 physical
             'cooling_ave_temp_change_across_HX': float(result.cooling_ave_temp_change_across_HX),                # N11
             'cooling_temp_change_induced_HP': float(result.cooling_temp_change_induced_HP),                      # N12
             'cooling_heat_pump_COP': float(result.cooling_heat_pump_COP),                                        # N13
@@ -427,6 +454,7 @@ class ATESMonteCarloEngine:
             'heating_co2_emissions_per_thermal': np.nan,
             'heating_ave_power_to_building_MW': np.nan,
             'heating_ave_production_temp': np.nan,
+            'heating_physical_production_temp': np.nan,
             'heating_direct_mode': False,
             
             'cooling_system_cop': np.nan,
@@ -436,14 +464,18 @@ class ATESMonteCarloEngine:
             'cooling_co2_emissions_per_thermal': np.nan,
             'cooling_ave_power_to_building_MW': np.nan,
             'cooling_ave_production_temp': np.nan,
+            'cooling_physical_production_temp': np.nan,
             'cooling_direct_mode': False,
             
             'energy_balance_ratio': np.nan,
             'volume_balance_ratio': np.nan,
+            'input_borehole_flow_rate': np.nan,
+            'input_balance_tolerance': np.nan,
             
 
             'heating_total_energy_stored': np.nan,
             'heating_stored_energy_recovered': np.nan,
+            'heating_target_avg_flowrate_pd': np.nan,
             'heating_total_flow_rate_m3hr': np.nan,
             'heating_total_flow_rate_ls': np.nan,
             'heating_total_flow_rate_m3s': np.nan,
@@ -527,7 +559,7 @@ class ATESMonteCarloEngine:
             try:
                 calculator = ATESCalculator(params)
                 result = calculator.calculate()
-                result_dict = self._extract_results(result, i)
+                result_dict = self._extract_results(result, i, params)
                 
                 # Eq31 check: Ti,c <= Tp,c <= Taq <= Tp,h <= Ti,h
                 if not self._check_eq31(params, result):
@@ -541,16 +573,25 @@ class ATESMonteCarloEngine:
 
 
                 for param_name in ['aquifer_temp', 'thermal_recovery_factor',
-                                'heating_target_avg_flowrate_pd', 'tolerance_in_energy_balance',
-                                'tolerance_in_thermal_recovery', 'tolerance_in_volume_balance',
+                                'tolerance_in_thermal_recovery',
                                 'heating_days', 'cooling_days', 'heating_ave_injection_temp',
                                 'cooling_ave_injection_temp', 'heating_temp_to_building',
                                 'cooling_temp_to_building', 'pump_energy_density',
                                 'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
                                 'carbon_intensity', 'water_density', 'water_specific_heat_capacity',
-                                 'heating_number_of_doublets','thermal_recovery_factor_c','cooling_target_avg_flowrate_pd',
+                                 'heating_number_of_doublets','thermal_recovery_factor_c',
                                  'screen_length','aquifer_porosity','rock_specific_heat_capacity','rock_density','max_thermal_radius']:
                     result_dict[f'input_{param_name}'] = getattr(params, param_name, None)
+                result_dict['input_borehole_flow_rate'] = (
+                    params.cooling_target_avg_flowrate_pd
+                    if params.specify_cooling_flowrate
+                    else params.heating_target_avg_flowrate_pd
+                )
+                result_dict['input_balance_tolerance'] = (
+                    params.tolerance_in_volume_balance
+                    if params.use_volume_balance
+                    else params.tolerance_in_energy_balance
+                )
 
             except Exception as e:
                 result_dict = self._create_error_result(i, str(e))
@@ -574,7 +615,7 @@ class ATESMonteCarloEngine:
             try:
                 calculator = ATESCalculator(params)
                 result = calculator.calculate()
-                result_dict = self._extract_results(result, start_index + i)
+                result_dict = self._extract_results(result, start_index + i, params)
 
                 # Eq31 check
                 if not self._check_eq31(params, result):
@@ -588,16 +629,25 @@ class ATESMonteCarloEngine:
 
 
                 for param_name in ['aquifer_temp', 'thermal_recovery_factor',
-                                'heating_target_avg_flowrate_pd', 'tolerance_in_energy_balance',
-                                'tolerance_in_thermal_recovery', 'tolerance_in_volume_balance',
+                                'tolerance_in_thermal_recovery',
                                 'heating_days', 'cooling_days', 'heating_ave_injection_temp',
                                 'cooling_ave_injection_temp', 'heating_temp_to_building',
                                 'cooling_temp_to_building', 'pump_energy_density',
                                 'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
                                 'carbon_intensity', 'water_density', 'water_specific_heat_capacity',
-                                'heating_number_of_doublets','thermal_recovery_factor_c','cooling_target_avg_flowrate_pd',
+                                'heating_number_of_doublets','thermal_recovery_factor_c',
                                 'screen_length','aquifer_porosity','rock_specific_heat_capacity','rock_density','max_thermal_radius']:
                     result_dict[f'input_{param_name}'] = getattr(params, param_name, None)
+                result_dict['input_borehole_flow_rate'] = (
+                    params.cooling_target_avg_flowrate_pd
+                    if params.specify_cooling_flowrate
+                    else params.heating_target_avg_flowrate_pd
+                )
+                result_dict['input_balance_tolerance'] = (
+                    params.tolerance_in_volume_balance
+                    if params.use_volume_balance
+                    else params.tolerance_in_energy_balance
+                )
 
                 chunk_results.append(result_dict)
             except Exception as e:
@@ -781,7 +831,7 @@ class ATESMonteCarloEngine:
         # automatically detect all numerical output parameters, excluding classification columns
         numeric_columns = analyzable_results_filtered.select_dtypes(include=[np.number]).columns
         output_params = [col for col in numeric_columns 
-                        if col not in ['iteration', 'success'] 
+                        if col not in ['iteration', 'success']
                         and not col.endswith('_anomaly_type')
                         and not col.startswith('has_')]
         

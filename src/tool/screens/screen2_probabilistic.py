@@ -19,6 +19,93 @@ from tool.core.ates_calculator import ATESParameters
 from tool.core.monte_carlo_engine import ATESMonteCarloEngine, MonteCarloConfig, create_progress_callback
 from tool.utils.state_management import get_app_state
 
+BOREHOLE_FLOW_RATE_PARAM = 'borehole_flow_rate'
+BALANCE_TOLERANCE_PARAM = 'balance_tolerance'
+
+
+def _default_distribution(value: float) -> Dict[str, Any]:
+    """Create a deterministic distribution configuration from a numeric value."""
+    return {
+        'type': 'single_value',
+        'value': value,
+        'min': value * 0.8,
+        'max': value * 1.2,
+        'most_likely': value,
+        'mean': value,
+        'std': max(value * 0.1, 0.01),
+        'location': 0.0,
+        'use_log_params': False,
+    }
+
+
+def _representative_distribution_value(dist: Dict[str, Any]) -> float:
+    """Return the value used when a distribution is synced to Quick Look."""
+    dist_type = dist.get('type', 'single_value')
+    if dist_type == 'single_value':
+        return float(dist['value'])
+    if dist_type == 'triangular':
+        return float(dist['most_likely'])
+    if dist_type in ['normal', 'lognormal']:
+        return float(dist['mean'])
+    return (float(dist['min']) + float(dist['max'])) / 2
+
+
+def ensure_borehole_flow_rate_distribution() -> None:
+    """Migrate legacy warm/cool flow-rate distributions into one shared input."""
+    distributions = st.session_state.param_distributions
+    legacy_params = ('heating_target_avg_flowrate_pd', 'cooling_target_avg_flowrate_pd')
+
+    if BOREHOLE_FLOW_RATE_PARAM not in distributions:
+        source_param = (
+            'cooling_target_avg_flowrate_pd'
+            if bool(st.session_state.mc_config.specify_cooling_flowrate)
+            else 'heating_target_avg_flowrate_pd'
+        )
+        source = distributions.get(source_param)
+        if source is None:
+            source_value = getattr(st.session_state.ates_params, source_param)
+            source = _default_distribution(float(source_value))
+        distributions[BOREHOLE_FLOW_RATE_PARAM] = source.copy()
+
+    migrated = False
+    for param_name in legacy_params:
+        if param_name in distributions:
+            del distributions[param_name]
+            migrated = True
+
+    if migrated:
+        st.session_state['stable_param_values'] = {}
+        st.session_state['param_config_version'] = st.session_state.get('param_config_version', 0) + 1
+
+
+def ensure_balance_tolerance_distribution() -> None:
+    """Migrate legacy energy/volume tolerance distributions into one input."""
+    distributions = st.session_state.param_distributions
+    legacy_params = ('tolerance_in_energy_balance', 'tolerance_in_volume_balance')
+
+    if BALANCE_TOLERANCE_PARAM not in distributions:
+        source_param = (
+            'tolerance_in_volume_balance'
+            if bool(st.session_state.mc_config.use_volume_balance)
+            else 'tolerance_in_energy_balance'
+        )
+        source = distributions.get(source_param)
+        if source is None:
+            source_value = getattr(st.session_state.ates_params, source_param)
+            source = _default_distribution(float(source_value))
+        distributions[BALANCE_TOLERANCE_PARAM] = source.copy()
+
+    migrated = False
+    for param_name in legacy_params:
+        if param_name in distributions:
+            del distributions[param_name]
+            migrated = True
+
+    if migrated:
+        st.session_state['stable_param_values'] = {}
+        st.session_state['param_config_version'] = st.session_state.get('param_config_version', 0) + 1
+
+
 def initialize_probabilistic_session_state():
     """Initialize session state for probabilistic analysis with robust initialization"""
     if 'ates_params' not in st.session_state:
@@ -31,8 +118,6 @@ def initialize_probabilistic_session_state():
             st.warning(f"Distribution initialization warning: {e}")
             st.session_state.param_distributions = {}
             initialize_distributions_from_ates_params()
-    ensure_distribution_parameter('cooling_target_avg_flowrate_pd')
-    
     if 'monte_carlo_results' not in st.session_state:
         st.session_state.monte_carlo_results = None
     
@@ -45,6 +130,12 @@ def initialize_probabilistic_session_state():
     if 'mc_config' not in st.session_state:
         st.session_state.mc_config = MonteCarloConfig()
     ensure_monte_carlo_operation_settings()
+    if st.session_state.pop('_mc_operation_widgets_need_sync', False):
+        sync_monte_carlo_operation_widget_state()
+    if st.session_state.pop('_mc_settings_widgets_need_sync', False):
+        sync_monte_carlo_settings_widget_state()
+    ensure_borehole_flow_rate_distribution()
+    ensure_balance_tolerance_distribution()
     
     if 'param_config_version' not in st.session_state:
         st.session_state.param_config_version = 0
@@ -60,17 +151,7 @@ def ensure_distribution_parameter(param_name: str) -> None:
         return
 
     current_value = getattr(st.session_state.ates_params, param_name)
-    st.session_state.param_distributions[param_name] = {
-        'type': 'single_value',
-        'value': current_value,
-        'min': current_value * 0.8,
-        'max': current_value * 1.2,
-        'most_likely': current_value,
-        'mean': current_value,
-        'std': max(current_value * 0.1, 0.01),
-        'location': 0.0,
-        'use_log_params': False,
-    }
+    st.session_state.param_distributions[param_name] = _default_distribution(float(current_value))
 
 def ensure_monte_carlo_operation_settings() -> None:
     """Backfill Monte Carlo-only operation settings for older sessions."""
@@ -94,7 +175,40 @@ def sync_monte_carlo_operation_widget_state() -> None:
         else "Warm flowrate (compute cool)"
     )
     st.session_state['mc_use_volume_balance'] = bool(st.session_state.mc_config.use_volume_balance)
+    st.session_state['mc_balance_choice'] = (
+        "Volume balance"
+        if bool(st.session_state.mc_config.use_volume_balance)
+        else "Energy balance"
+    )
     st.session_state['mc_constrain_by_thermal_radius'] = bool(st.session_state.mc_config.constrain_by_thermal_radius)
+
+
+def sync_monte_carlo_settings_widget_state() -> None:
+    """Refresh non-operation Monte Carlo widgets after a load or reset."""
+    config = st.session_state.mc_config
+    st.session_state['mc_iterations_input'] = int(
+        st.session_state.get('monte_carlo_iterations', config.iterations)
+    )
+    st.session_state['mc_seed_input'] = int(config.seed) if config.seed is not None else 0
+    st.session_state['mc_parallel_input'] = bool(config.parallel)
+    st.session_state['mc_max_workers_input'] = int(config.max_workers or 4)
+    st.session_state['mc_chunk_size_input'] = int(config.chunk_size)
+
+
+def update_monte_carlo_operation_setting(config_name: str, widget_key: str) -> None:
+    """Apply a Screen 2 operation change immediately and mark the case modified."""
+    if config_name == 'specify_cooling_flowrate':
+        new_value = str(st.session_state[widget_key]).startswith('Cool')
+    elif config_name == 'use_volume_balance':
+        new_value = str(st.session_state[widget_key]).startswith('Volume')
+    else:
+        new_value = bool(st.session_state[widget_key])
+
+    current_value = bool(getattr(st.session_state.mc_config, config_name))
+    if current_value != new_value:
+        setattr(st.session_state.mc_config, config_name, new_value)
+        from tool.utils.state_management import mark_case_modified
+        mark_case_modified()
 
 def initialize_distributions_from_ates_params() -> None:
     """Initialize distributions directly from ATES parameters"""
@@ -103,10 +217,8 @@ def initialize_distributions_from_ates_params() -> None:
     
     probabilistic_params = [
         'aquifer_temp', 'water_density', 'water_specific_heat_capacity',
-        'thermal_recovery_factor', 'heating_target_avg_flowrate_pd',
-        'cooling_target_avg_flowrate_pd',
-        'tolerance_in_energy_balance', 'tolerance_in_thermal_recovery',
-        'tolerance_in_volume_balance','heating_number_of_doublets',
+        'thermal_recovery_factor',
+        'tolerance_in_thermal_recovery', 'heating_number_of_doublets',
         'heating_days', 'cooling_days', 'pump_energy_density',
         'heating_ave_injection_temp', 'heating_temp_to_building',
         'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
@@ -119,17 +231,14 @@ def initialize_distributions_from_ates_params() -> None:
     for param_name in probabilistic_params:
         if hasattr(params, param_name):
             current_value = getattr(params, param_name)
-            distributions[param_name] = {
-                'type': 'single_value',
-                'value': current_value,
-                'min': current_value * 0.8,
-                'max': current_value * 1.2,
-                'most_likely': current_value,
-                'mean': current_value,
-                'std': max(current_value * 0.1, 0.01),
-                'location': 0.0,  
-                'use_log_params': False,  
-            }
+            distributions[param_name] = _default_distribution(float(current_value))
+
+    distributions[BOREHOLE_FLOW_RATE_PARAM] = _default_distribution(
+        float(params.heating_target_avg_flowrate_pd)
+    )
+    distributions[BALANCE_TOLERANCE_PARAM] = _default_distribution(
+        float(params.tolerance_in_energy_balance)
+    )
     
     st.session_state.param_distributions = distributions
 
@@ -140,10 +249,8 @@ def initialize_distributions() -> Dict[str, Dict[str, Any]]:
     
     probabilistic_params = [
         'aquifer_temp', 'water_density', 'water_specific_heat_capacity',
-        'thermal_recovery_factor', 'heating_target_avg_flowrate_pd',
-        'cooling_target_avg_flowrate_pd',
-        'tolerance_in_energy_balance', 'tolerance_in_thermal_recovery',
-        'tolerance_in_volume_balance','heating_number_of_doublets',
+        'thermal_recovery_factor',
+        'tolerance_in_thermal_recovery', 'heating_number_of_doublets',
         'heating_days', 'cooling_days', 'pump_energy_density',
         'heating_ave_injection_temp', 'heating_temp_to_building',
         'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
@@ -156,17 +263,14 @@ def initialize_distributions() -> Dict[str, Dict[str, Any]]:
     for param_name in probabilistic_params:
         if hasattr(params, param_name):
             current_value = getattr(params, param_name)
-            distributions[param_name] = {
-                'type': 'single_value',
-                'value': current_value,
-                'min': current_value * 0.8,
-                'max': current_value * 1.2,
-                'most_likely': current_value,
-                'mean': current_value,
-                'std': max(current_value * 0.1, 0.01),
-                'location': 0.0,  
-                'use_log_params': False,  
-            }
+            distributions[param_name] = _default_distribution(float(current_value))
+
+    distributions[BOREHOLE_FLOW_RATE_PARAM] = _default_distribution(
+        float(params.heating_target_avg_flowrate_pd)
+    )
+    distributions[BALANCE_TOLERANCE_PARAM] = _default_distribution(
+        float(params.tolerance_in_energy_balance)
+    )
     
     return distributions
 
@@ -187,6 +291,34 @@ def sync_from_deterministic():
         st.session_state.mc_config.use_volume_balance = bool(st.session_state.ates_params.use_volume_balance)
         st.session_state.mc_config.constrain_by_thermal_radius = bool(st.session_state.ates_params.constrain_by_thermal_radius)
         sync_monte_carlo_operation_widget_state()
+
+    flowrate_param = (
+        'cooling_target_avg_flowrate_pd'
+        if bool(st.session_state.ates_params.specify_cooling_flowrate)
+        else 'heating_target_avg_flowrate_pd'
+    )
+    flowrate_value = float(getattr(st.session_state.ates_params, flowrate_param))
+    flowrate_dist = st.session_state.param_distributions[BOREHOLE_FLOW_RATE_PARAM]
+    flowrate_dist.update({
+        'value': flowrate_value,
+        'mean': flowrate_value,
+        'most_likely': flowrate_value,
+        'std': max(flowrate_value * 0.1, 0.01),
+    })
+
+    balance_param = (
+        'tolerance_in_volume_balance'
+        if bool(st.session_state.ates_params.use_volume_balance)
+        else 'tolerance_in_energy_balance'
+    )
+    balance_value = float(getattr(st.session_state.ates_params, balance_param))
+    balance_dist = st.session_state.param_distributions[BALANCE_TOLERANCE_PARAM]
+    balance_dist.update({
+        'value': balance_value,
+        'mean': balance_value,
+        'most_likely': balance_value,
+        'std': max(abs(balance_value) * 0.1, 0.01),
+    })
 
     # Clear stable_param_values cache to force UI refresh
     st.session_state['stable_param_values'] = {}
@@ -221,6 +353,30 @@ def sync_to_deterministic():
             if has_changed:
                 setattr(st.session_state.ates_params, param_name, new_value)
                 updated_count += 1
+
+    flowrate_value = _representative_distribution_value(
+        st.session_state.param_distributions[BOREHOLE_FLOW_RATE_PARAM]
+    )
+    flowrate_param = (
+        'cooling_target_avg_flowrate_pd'
+        if bool(st.session_state.mc_config.specify_cooling_flowrate)
+        else 'heating_target_avg_flowrate_pd'
+    )
+    if abs(float(getattr(st.session_state.ates_params, flowrate_param)) - flowrate_value) > 1e-6:
+        setattr(st.session_state.ates_params, flowrate_param, flowrate_value)
+        updated_count += 1
+
+    balance_value = _representative_distribution_value(
+        st.session_state.param_distributions[BALANCE_TOLERANCE_PARAM]
+    )
+    balance_param = (
+        'tolerance_in_volume_balance'
+        if bool(st.session_state.mc_config.use_volume_balance)
+        else 'tolerance_in_energy_balance'
+    )
+    if abs(float(getattr(st.session_state.ates_params, balance_param)) - balance_value) > 1e-6:
+        setattr(st.session_state.ates_params, balance_param, balance_value)
+        updated_count += 1
 
     operation_params = [
         'specify_cooling_flowrate',
@@ -604,27 +760,22 @@ def render_operational_parameters():
     """
     st.subheader("ATES System Operation")
     
+    render_parameter_config(BOREHOLE_FLOW_RATE_PARAM, 'Borehole Flow Rate (m³/hr)')
+    render_parameter_config(BALANCE_TOLERANCE_PARAM, 'Energy or Volume Balance Tolerance (-)')
+
     operational_params = [
-        'heating_target_avg_flowrate_pd',
-        'cooling_target_avg_flowrate_pd',
         'heating_number_of_doublets',
         'heating_ave_injection_temp',
         'thermal_recovery_factor',
-        'tolerance_in_energy_balance',
         'tolerance_in_thermal_recovery',
-        'tolerance_in_volume_balance',
         'cooling_ave_injection_temp'
     ]
     
     param_labels = {
-        'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
-        'cooling_target_avg_flowrate_pd': 'Target Flow Rate Cooling (m³/hr)',
         'heating_number_of_doublets': 'Number of Doublets (-)',
         'heating_ave_injection_temp': 'Cool well injection temperature (°C)',
-        'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
-        'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
+        'thermal_recovery_factor': 'Thermal Recovery Factor Heating (-)',
         'tolerance_in_thermal_recovery': 'Thermal Recovery Tolerance εRT (-)',
-        'tolerance_in_volume_balance': 'Volume Balance Tolerance εVBR (-)',
         'cooling_ave_injection_temp': 'Warm well injection temperature (°C)'
     }
     
@@ -791,89 +942,111 @@ def render_monte_carlo_settings():
     col1, col2, col3 = st.columns([2, 2, 1])
     
     with col1:
+        if 'mc_iterations_input' not in st.session_state:
+            st.session_state['mc_iterations_input'] = st.session_state.get('monte_carlo_iterations', 10000)
         st.session_state.monte_carlo_iterations = st.number_input(
             "Number of Iterations",
-            value=st.session_state.get('monte_carlo_iterations', 10000),
             min_value=1000,
             max_value=100000,
             step=1000,
-            help="More iterations = more accurate results but longer computation time"
+            help="More iterations = more accurate results but longer computation time",
+            key='mc_iterations_input'
         )
     
     with col2:
-        # Read seed from mc_config, default to 42
-        current_seed = st.session_state.mc_config.seed if st.session_state.mc_config.seed is not None else 42
+        if 'mc_seed_input' not in st.session_state:
+            st.session_state['mc_seed_input'] = (
+                st.session_state.mc_config.seed
+                if st.session_state.mc_config.seed is not None else 0
+            )
         seed = st.number_input(
             "Random Seed",
-            value=current_seed,
             min_value=0,
-            help="Set for reproducible results (0 for random)"
+            help="Set for reproducible results (0 for random)",
+            key='mc_seed_input'
         )
         st.session_state.mc_config.seed = seed if seed > 0 else None
     
     with col3:
+        if 'mc_parallel_input' not in st.session_state:
+            st.session_state['mc_parallel_input'] = st.session_state.mc_config.parallel
         parallel = st.checkbox(
             "Parallel Processing",
-            value=st.session_state.mc_config.parallel,
-            help="Use multiple CPU cores for faster computation"
+            help="Use multiple CPU cores for faster computation",
+            key='mc_parallel_input'
         )
         st.session_state.mc_config.parallel = parallel
 
     st.markdown("### Monte Carlo Operation")
-    if (
-        'mc_specify_flowrate_choice' not in st.session_state
-        or 'mc_use_volume_balance' not in st.session_state
-        or 'mc_constrain_by_thermal_radius' not in st.session_state
-    ):
-        sync_monte_carlo_operation_widget_state()
+    # `mc_config` is the source of truth for Screen 2 operation choices.  Writing
+    # these values before creating the widgets prevents stale widget state from a
+    # prior case overriding a just-loaded configuration.
+    sync_monte_carlo_operation_widget_state()
 
     with st.container(border=True):
-        flow_col, options_col = st.columns([1, 1.25])
+        flow_col, balance_col, constraint_col = st.columns(3)
         with flow_col:
             st.markdown("**Flowrate basis**")
             st.radio(
                 "Flowrate basis",
                 options=["Warm flowrate (compute cool)", "Cool flowrate (compute warm)"],
                 key="mc_specify_flowrate_choice",
+                on_change=lambda: update_monte_carlo_operation_setting(
+                    'specify_cooling_flowrate', 'mc_specify_flowrate_choice'
+                ),
                 help="Select which flow rate is sampled as the specified input for Monte Carlo.",
                 label_visibility="collapsed"
             )
             st.session_state.mc_config.specify_cooling_flowrate = st.session_state.mc_specify_flowrate_choice.startswith("Cool")
 
-        with options_col:
-            st.markdown("**Calculation options**")
-            st.session_state.mc_config.use_volume_balance = st.checkbox(
-                "Use Volume Balance for Cooling Flow Rate",
-                help="If checked, Monte Carlo uses volume balance; otherwise it uses energy balance.",
-                key="mc_use_volume_balance"
+        with balance_col:
+            st.markdown("**Balance basis**")
+            st.radio(
+                "Balance basis",
+                options=["Energy balance", "Volume balance"],
+                key="mc_balance_choice",
+                on_change=lambda: update_monte_carlo_operation_setting(
+                    'use_volume_balance', 'mc_balance_choice'
+                ),
+                help="Select the balance equation used to calculate the other flow rate.",
+                label_visibility="collapsed"
             )
 
+        with constraint_col:
+            st.markdown("**Thermal radius**")
             st.session_state.mc_config.constrain_by_thermal_radius = st.checkbox(
                 "Apply Thermal Radius Constraint",
                 help="If checked, Monte Carlo rejects samples that exceed the maximum thermal radius.",
-                key="mc_constrain_by_thermal_radius"
+                key="mc_constrain_by_thermal_radius",
+                on_change=lambda: update_monte_carlo_operation_setting(
+                    'constrain_by_thermal_radius', 'mc_constrain_by_thermal_radius'
+                )
             )
     
     with st.expander("Advanced Settings"):
         col1, col2 = st.columns(2)
         
         with col1:
+            if 'mc_max_workers_input' not in st.session_state:
+                st.session_state['mc_max_workers_input'] = st.session_state.mc_config.max_workers or 4
             max_workers = st.number_input(
                 "Max Workers",
-                value=st.session_state.mc_config.max_workers if st.session_state.mc_config.max_workers is not None else 4,
                 min_value=1,
                 max_value=16,
-                help="Number of parallel workers (if parallel processing enabled)"
+                help="Number of parallel workers (if parallel processing enabled)",
+                key='mc_max_workers_input'
             )
             st.session_state.mc_config.max_workers = max_workers
         
         with col2:
+            if 'mc_chunk_size_input' not in st.session_state:
+                st.session_state['mc_chunk_size_input'] = st.session_state.mc_config.chunk_size
             chunk_size = st.number_input(
                 "Chunk Size",
-                value=st.session_state.mc_config.chunk_size,
                 min_value=100,
                 max_value=10000,
-                help="Number of iterations per chunk for progress tracking"
+                help="Number of iterations per chunk for progress tracking",
+                key='mc_chunk_size_input'
             )
             st.session_state.mc_config.chunk_size = chunk_size
     
@@ -901,7 +1074,9 @@ def render_enabled_parameters_summary():
         'aquifer_temp': 'Aquifer Temperature (°C)',
         'water_density': 'Water Density (kg/m³)',
         'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
-        'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+        'thermal_recovery_factor': 'Thermal Recovery Factor Heating (-)',
+        BOREHOLE_FLOW_RATE_PARAM: 'Borehole Flow Rate (m³/hr)',
+        BALANCE_TOLERANCE_PARAM: 'Energy or Volume Balance Tolerance (-)',
         'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
         'cooling_target_avg_flowrate_pd': 'Target Flow Rate Cooling (m³/hr)',
         'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
@@ -1084,6 +1259,20 @@ def run_monte_carlo_analysis():
             parameter_samples = mc_engine._generate_parameter_samples(
                 st.session_state.param_distributions, rng
             )
+            sampled_flowrate_param = (
+                'cooling_target_avg_flowrate_pd'
+                if st.session_state.mc_config.specify_cooling_flowrate
+                else 'heating_target_avg_flowrate_pd'
+            )
+            sampled_balance_param = (
+                'tolerance_in_volume_balance'
+                if st.session_state.mc_config.use_volume_balance
+                else 'tolerance_in_energy_balance'
+            )
+            parameter_samples = parameter_samples.rename(columns={
+                sampled_flowrate_param: BOREHOLE_FLOW_RATE_PARAM,
+                sampled_balance_param: BALANCE_TOLERANCE_PARAM,
+            })
             
             try:
                 sensitivity_results = mc_engine.calculate_sensitivity_analysis(parameter_samples)
@@ -1248,21 +1437,23 @@ def render_monte_carlo_export():
                 width="stretch"
             )
 
-def reset_all_distributions():
-    """
-    Reset all distribution configurations to initial loaded state (or default if no case loaded)
-    """
-    from tool.utils.state_management import get_app_state
+def reset_monte_carlo_setup() -> bool:
+    """Restore Screen 2 to its loaded baseline without changing Quick Look."""
+    from tool.utils.state_management import get_app_state, mark_case_modified
     app_state = get_app_state()
-    
-    # Try to restore from snapshot first
-    restored = app_state.restore_case_snapshot()
-    
-    if not restored:
-        # No snapshot exists, reset to system defaults
+    restored_loaded_values = app_state.restore_monte_carlo_snapshot()
+
+    if not restored_loaded_values:
         st.session_state.param_config_version = st.session_state.get('param_config_version', 0) + 1
         st.session_state.stable_param_values = {}
         st.session_state.param_distributions = initialize_distributions()
+
+        st.session_state.mc_config = MonteCarloConfig()
+        st.session_state.monte_carlo_iterations = st.session_state.mc_config.iterations
+        sync_monte_carlo_operation_widget_state()
+        sync_monte_carlo_settings_widget_state()
+        st.session_state['_mc_operation_widgets_need_sync'] = True
+        st.session_state['_mc_settings_widgets_need_sync'] = True
     
     # Clear all analysis results
     analysis_keys = [
@@ -1270,7 +1461,8 @@ def reset_all_distributions():
         'sensitivity_results', 
         'calculation_count',
         'last_calculation_time',
-        'calculation_status'
+        'calculation_status',
+        '_mc_config_hash'
     ]
     
     for key in analysis_keys:
@@ -1281,12 +1473,12 @@ def reset_all_distributions():
     st.session_state.calculation_status = 'not_started'
     st.session_state.last_calculation_time = None
     
-    # Clear uploaded file ID to allow re-uploading same case
-    if '_last_uploaded_file_id' in st.session_state:
-        del st.session_state['_last_uploaded_file_id']
-    
-    from tool.utils.state_management import mark_case_modified
-    mark_case_modified()
+    if restored_loaded_values:
+        app_state.refresh_case_modified_status()
+    else:
+        mark_case_modified()
+
+    return restored_loaded_values
 
 def main():
     """
@@ -1327,11 +1519,13 @@ def main():
             st.rerun()
     
     with col3:
-        # Button to reset all parameters to their default values
-        if st.button("Reset All", width="stretch",
-                     help="Reset all parameters to default values"):
-            reset_all_distributions()  # Reset all probability distributions
-            st.success("All parameters reset to defaults")
+        if st.button("Reset", width="stretch",
+                     help="Restore loaded distributions and simulation settings without changing Quick Look"):
+            restored_loaded_values = reset_monte_carlo_setup()
+            if restored_loaded_values:
+                st.success("Monte Carlo setup restored to the loaded case values")
+            else:
+                st.success("Monte Carlo setup reset to default values")
             st.rerun()  # Refresh the page to reflect changes
     
     st.markdown("---")  # Add visual separator

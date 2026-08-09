@@ -193,7 +193,7 @@ def add_footer():
         st.markdown(f"**Current Case:** {case_name}{modification_status}")
     
     with col2:
-        st.markdown("**Version:** 7.0")
+        st.markdown("**Version:** 8.0")
     
 
 

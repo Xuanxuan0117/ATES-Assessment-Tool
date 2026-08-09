@@ -375,8 +375,8 @@ class ATESResults:
 
     # Feature B - thermal radius (paper eq 34-37)
     aquifer_volumetric_heat_capacity: float = 0.0       # caq (eq36) J/K/m³
-    thermal_radius_h: float = 0.0                       # r_T,h warm plume thermal radius (m) - eq34
-    thermal_radius_c: float = 0.0                       # r_T,c cool plume thermal radius (m) - eq35
+    thermal_radius_h: float = 0.0                       # r_T,h warm plume thermal radius (m)
+    thermal_radius_c: float = 0.0                       # r_T,c cool plume thermal radius (m)
 
 class ATESCalculator:
     """
@@ -416,9 +416,12 @@ class ATESCalculator:
 
     def _calculate_thermal_radius(self):
         """
-        Compute aquifer volumetric heat capacity (eq36) and the warm/cool plume thermal
-        radii (eq34/35). Ap = pi*rT^2 is the plume cross-sectional area, hence the sqrt form:
+        Compute aquifer volumetric heat capacity and the warm/cool plume thermal
+        radii. Ap = pi*rT^2 is the plume cross-sectional area, hence the sqrt form:
             r_T = sqrt( cw * Vp / (caq * pi * nb * Ls) )
+
+        Plume radius is based on injected volume. Heating produced volume is injected
+        into the cool well; cooling produced volume is injected into the warm well.
         """
         import math
         p = self.params
@@ -435,10 +438,10 @@ class ATESCalculator:
             r.thermal_radius_c = 0.0
             return
 
-        vh = max(p.heating_total_produced_volume, 0.0)
-        vc = max(p.cooling_total_produced_volume, 0.0)
-        r.thermal_radius_h = math.sqrt(p.water_volumetric_heat_capacity * vh / denom)
-        r.thermal_radius_c = math.sqrt(p.water_volumetric_heat_capacity * vc / denom)
+        warm_injected_volume = max(p.cooling_total_produced_volume, 0.0)
+        cool_injected_volume = max(p.heating_total_produced_volume, 0.0)
+        r.thermal_radius_h = math.sqrt(p.water_volumetric_heat_capacity * warm_injected_volume / denom)
+        r.thermal_radius_c = math.sqrt(p.water_volumetric_heat_capacity * cool_injected_volume / denom)
     
     def _calculate_heating_outputs(self):
         """

@@ -76,6 +76,32 @@ def _generate_prior_samples(dist_config: dict, n_samples: int = 10000):
         return None
     return None
 
+def _generate_prior_samples_with_fixed(dist_config: Optional[dict], n_samples: int = 10000):
+    if not dist_config:
+        return None
+    if dist_config.get('type') == 'single_value':
+        return np.full(n_samples, safe_float(dist_config.get('value', 0.0)))
+    return _generate_prior_samples(dist_config, n_samples)
+
+def _generate_thermal_recovery_factor_c_prior_samples(
+    distributions: Dict[str, dict],
+    n_samples: int = 10000
+):
+    heating_dist = distributions.get('thermal_recovery_factor')
+    tolerance_dist = distributions.get('tolerance_in_thermal_recovery')
+    if not heating_dist or not tolerance_dist:
+        return None
+    if (
+        heating_dist.get('type') == 'single_value'
+        and tolerance_dist.get('type') == 'single_value'
+    ):
+        return None
+    heating_samples = _generate_prior_samples_with_fixed(heating_dist, n_samples)
+    tolerance_samples = _generate_prior_samples_with_fixed(tolerance_dist, n_samples)
+    if heating_samples is None or tolerance_samples is None:
+        return None
+    return (1 + tolerance_samples) * heating_samples
+
 class ATESVisualizer:
     """
     Main visualization class for Monte Carlo results and sensitivity analysis
@@ -109,15 +135,17 @@ class ATESVisualizer:
                 'heating_annual_energy_building_kWhth': 'Annual Energy to Building (kWhth)',
                 'heating_annual_elec_energy_J': 'Annual Electricity (J)',
                 'heating_annual_elec_energy_MWhe': 'Annual Electricity (MWhe)',
-                'heating_co2_emissions_per_thermal': 'CO₂ Emissions per Unit Thermal (gCO₂/kWhth)',
-                'heating_elec_energy_per_thermal': 'Electrical Energy per Unit Thermal (kWhe/kWhth)'
+                'heating_co2_emissions_per_thermal': 'CO₂ Emissions per unit thermal energy (gCO₂/kWhth)',
+                'heating_elec_energy_per_thermal': 'Electrical Energy per unit thermal energy (kWhe/kWhth)'
             },
             
             'Heating System - Flow & Temperature': {
+                'heating_target_avg_flowrate_pd': 'Flow Rate per Borehole (m³/hr)',
                 'heating_total_flow_rate_ls': 'Total Flow Rate (l/s)',
-                'heating_ave_production_temp': 'Average Production Temperature (°C)',
+                'heating_physical_production_temp': 'Production Temperature (°C)',
                 'heating_total_flow_rate_m3hr': 'Total Flow Rate (m³/hr)',
                 'heating_total_flow_rate_m3s': 'Total Flow Rate (m³/s)',
+                'heating_ave_production_temp': 'Average Production Temperature (°C)',
                 'heating_ave_temp_change_across_HX': 'Average Temperature Change Across Heat Exchanger (°C)',
                 'heating_temp_change_induced_HP': 'Temperature Change Induced by Heat Pump (°C)'
             },
@@ -154,16 +182,17 @@ class ATESVisualizer:
                 'cooling_annual_energy_building_kWhth': 'Annual Energy to Building (kWhth)',
                 'cooling_annual_elec_energy_J': 'Annual Electricity (J)',
                 'cooling_annual_elec_energy_MWhe': 'Annual Electricity (MWhe)',
-                'cooling_co2_emissions_per_thermal': 'CO₂ Emissions per Unit Thermal (gCO₂/kWhth)',
-                'cooling_elec_energy_per_thermal': 'Electrical Energy per Unit Thermal (kWhe/kWhth)'
+                'cooling_co2_emissions_per_thermal': 'CO₂ Emissions per unit thermal energy (gCO₂/kWhth)',
+                'cooling_elec_energy_per_thermal': 'Electrical Energy per unit thermal energy (kWhe/kWhth)'
             },
             
             'Cooling System - Flow & Temperature': {
                 'cooling_total_flow_rate_ls': 'Total Flow Rate (l/s)',
                 'cooling_target_avg_flowrate_pd': 'Flow Rate per Borehole (m³/hr)',
-                'cooling_ave_production_temp': 'Average Production Temperature (°C)',
+                'cooling_physical_production_temp': 'Production Temperature (°C)',
                 'cooling_total_flow_rate_m3hr': 'Total Flow Rate (m³/hr)',
                 'cooling_total_flow_rate_m3s': 'Total Flow Rate (m³/s)',
+                'cooling_ave_production_temp': 'Average Production Temperature (°C)',
                 'cooling_ave_temp_change_across_HX': 'Average Temperature Change Across Heat Exchanger (°C)',
                 'cooling_temp_change_induced_HP': 'Temperature Change Induced by Heat Pump (°C)'
             },
@@ -203,12 +232,11 @@ class ATESVisualizer:
                 'input_water_density': 'Water Density (kg/m³)',
                 'input_water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
                 'input_heating_number_of_doublets': 'Number of Doublets',
-                'input_thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+                'input_thermal_recovery_factor': 'Thermal Recovery Factor Heating (-)',
                 'input_thermal_recovery_factor_c': 'Thermal Recovery Factor Cooling (-)',
-                'input_heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
-                'input_tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
+                'input_borehole_flow_rate': 'Borehole Flow Rate (m³/hr)',
+                'input_balance_tolerance': 'Energy or Volume Balance Tolerance (-)',
                 'input_tolerance_in_thermal_recovery': 'Thermal Recovery Tolerance εRT (-)',
-                'input_tolerance_in_volume_balance': 'Volume Balance Tolerance εVBR (-)',
                 'input_heating_days': 'Heating Days',
                 'input_cooling_days': 'Cooling Days',
                 'input_heating_ave_injection_temp': 'Cool Well Injection Temperature (°C)',
@@ -251,7 +279,7 @@ class ATESVisualizer:
             'Cooling System - Heat Pump & Electrical': '#0D6EFD',
             'System Balance & Groundwater Volumes': '#7F7F7F',
             'System Balance & Overall': '#7F7F7F',
-            ' - Prior & Posterior': '#2CA02C',
+            'Input Parameters - Prior & Posterior': '#2CA02C',
             'Thermal Radius Outputs': '#9467BD'
         }
     
@@ -785,18 +813,25 @@ class ATESVisualizer:
             
                 if 'Input Parameters' in group_name:
                     original_param = param.replace('input_', '')
-                    param_dist = st.session_state.get('param_distributions', {}).get(original_param)
-                    if param_dist and param_dist.get('type') != 'single_value':
-                        prior_samples = _generate_prior_samples(param_dist)
-                        if prior_samples is not None:
-                            prior_counts, _ = np.histogram(prior_samples, bins=bin_edges)
-                            prior_probability = prior_counts / len(prior_samples)
-                            fig.add_trace(go.Scatter(
-                                x=bin_centers, y=prior_probability,
-                                mode='lines', name='Prior Distribution',
-                                line=dict(color='blue', width=2),
-                                yaxis='y'
-                            ))
+                    distributions = st.session_state.get('param_distributions', {})
+                    if original_param == 'thermal_recovery_factor_c':
+                        prior_samples = _generate_thermal_recovery_factor_c_prior_samples(distributions)
+                    else:
+                        param_dist = distributions.get(original_param)
+                        prior_samples = (
+                            _generate_prior_samples(param_dist)
+                            if param_dist and param_dist.get('type') != 'single_value'
+                            else None
+                        )
+                    if prior_samples is not None:
+                        prior_counts, _ = np.histogram(prior_samples, bins=bin_edges)
+                        prior_probability = prior_counts / len(prior_samples)
+                        fig.add_trace(go.Scatter(
+                            x=bin_centers, y=prior_probability,
+                            mode='lines', name='Prior Distribution',
+                            line=dict(color='blue', width=2),
+                            yaxis='y'
+                        ))
                 
                 fig.add_vline(x=mean_val, line_dash="dash", line_color="black", 
                             annotation_text=f"Mean: {mean_val:.3f}",
@@ -1051,18 +1086,25 @@ class ATESVisualizer:
                             
                             if 'Input Parameters' in group_name:
                                 original_param = param.replace('input_', '')
-                                param_dist = st.session_state.get('param_distributions', {}).get(original_param)
-                                if param_dist and param_dist.get('type') != 'single_value':
-                                    prior_samples = _generate_prior_samples(param_dist)
-                                    if prior_samples is not None:
-                                        prior_counts, _ = np.histogram(prior_samples, bins=bin_edges)
-                                        prior_probability = prior_counts / len(prior_samples)
-                                        fig.add_trace(go.Scatter(
-                                            x=bin_centers, y=prior_probability,
-                                            mode='lines', name='Prior Distribution',
-                                            line=dict(color='blue', width=2),
-                                            yaxis='y'
-                                        ))
+                                distributions = st.session_state.get('param_distributions', {})
+                                if original_param == 'thermal_recovery_factor_c':
+                                    prior_samples = _generate_thermal_recovery_factor_c_prior_samples(distributions)
+                                else:
+                                    param_dist = distributions.get(original_param)
+                                    prior_samples = (
+                                        _generate_prior_samples(param_dist)
+                                        if param_dist and param_dist.get('type') != 'single_value'
+                                        else None
+                                    )
+                                if prior_samples is not None:
+                                    prior_counts, _ = np.histogram(prior_samples, bins=bin_edges)
+                                    prior_probability = prior_counts / len(prior_samples)
+                                    fig.add_trace(go.Scatter(
+                                        x=bin_centers, y=prior_probability,
+                                        mode='lines', name='Prior Distribution',
+                                        line=dict(color='blue', width=2),
+                                        yaxis='y'
+                                    ))
                             fig.add_vline(x=mean_val, line_dash="dash", line_color="black", line_width=1)
                             
                             with plot_cols[j]:
@@ -2058,7 +2100,12 @@ class ATESVisualizer:
             'aquifer_temp': 'Aquifer Temperature (°C)',
             'water_density': 'Water Density (kg/m³)',
             'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',  
-            'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+            'thermal_recovery_factor': 'Thermal Recovery Factor Heating (-)',
+            'thermal_recovery_factor_c': 'Thermal Recovery Factor Cooling (-)',
+            'borehole_flow_rate': 'Borehole Flow Rate (m³/hr)',
+            'balance_tolerance': 'Energy or Volume Balance Tolerance (-)',
+            'input_borehole_flow_rate': 'Input Borehole Flow Rate (m³/hr)',
+            'input_balance_tolerance': 'Input Energy or Volume Balance Tolerance (-)',
             'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)', 
             'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',  
             'heating_number_of_doublets': 'Number of Doublets (-)',  
@@ -2079,8 +2126,10 @@ class ATESVisualizer:
             'heating_system_cop': 'Heating System COP (-)',
             'heating_annual_energy_building_GWhth': 'Heating Annual Energy to Building (GWhth)',
             'heating_annual_elec_energy_GWhe': 'Heating Annual Electricity (GWhe)',
-            'heating_co2_emissions_per_thermal': 'Heating CO₂ Emissions per Thermal (gCO₂/kWhth)',
+            'heating_co2_emissions_per_thermal': 'Heating CO₂ Emissions per unit thermal energy (gCO₂/kWhth)',
             'heating_ave_power_to_building_MW': 'Heating Average Power to Building (MW)',
+            'heating_target_avg_flowrate_pd': 'Heating Flow Rate per Borehole (m³/hr)',
+            'heating_physical_production_temp': 'Heating Production Temperature (°C)',
             'heating_ave_production_temp': 'Heating Average Production Temperature (°C)',
             'heating_total_energy_stored': 'Heating Total Energy Stored (J)',
             'heating_stored_energy_recovered': 'Heating Stored Energy Recovered (J)',
@@ -2089,7 +2138,7 @@ class ATESVisualizer:
             'heating_annual_energy_aquifer_GWhth': 'Heating Annual Energy from Aquifer (GWhth)',
             'heating_annual_energy_building_J': 'Heating Annual Energy to Building (J)',
             'heating_annual_energy_building_kWhth': 'Heating Annual Energy to Building (kWhth)',
-            'heating_elec_energy_per_thermal': 'Heating Electrical Energy per Thermal (kWhe/kWhth)',
+            'heating_elec_energy_per_thermal': 'Heating Electrical Energy per unit thermal energy (kWhe/kWhth)',
             'heating_total_flow_rate_m3hr': 'Heating Total Flow Rate (m³/hr)',
             'heating_total_flow_rate_ls': 'Heating Total Flow Rate (l/s)',
             'heating_total_flow_rate_m3s': 'Heating Total Flow Rate (m³/s)',
@@ -2111,8 +2160,9 @@ class ATESVisualizer:
             'cooling_system_cop': 'Cooling System COP (-)',
             'cooling_annual_energy_building_GWhth': 'Cooling Annual Energy to Building (GWhth)',
             'cooling_annual_elec_energy_GWhe': 'Cooling Annual Electricity (GWhe)',
-            'cooling_co2_emissions_per_thermal': 'Cooling CO₂ Emissions per Thermal (gCO₂/kWhth)',
+            'cooling_co2_emissions_per_thermal': 'Cooling CO₂ Emissions per unit thermal energy (gCO₂/kWhth)',
             'cooling_ave_power_to_building_MW': 'Cooling Average Power to Building (MW)',
+            'cooling_physical_production_temp': 'Cooling Production Temperature (°C)',
             'cooling_ave_production_temp': 'Cooling Average Production Temperature (°C)',
             'cooling_total_energy_stored': 'Cooling Total Energy Stored (J)',
             'cooling_stored_energy_recovered': 'Cooling Stored Energy Recovered (J)',
@@ -2121,7 +2171,7 @@ class ATESVisualizer:
             'cooling_annual_energy_aquifer_GWhth': 'Cooling Annual Energy from Aquifer (GWhth)',
             'cooling_annual_energy_building_J': 'Cooling Annual Energy to Building (J)',
             'cooling_annual_energy_building_kWhth': 'Cooling Annual Energy to Building (kWhth)',
-            'cooling_elec_energy_per_thermal': 'Cooling Electrical Energy per Thermal (kWhe/kWhth)',
+            'cooling_elec_energy_per_thermal': 'Cooling Electrical Energy per unit thermal energy (kWhe/kWhth)',
             'cooling_total_flow_rate_m3hr': 'Cooling Total Flow Rate (m³/hr)',
             'cooling_total_flow_rate_ls': 'Cooling Total Flow Rate (l/s)',
             'cooling_total_flow_rate_m3s': 'Cooling Total Flow Rate (m³/s)',
@@ -2138,7 +2188,7 @@ class ATESVisualizer:
             'cooling_elec_energy_HP': 'Cooling Electrical Energy to Heat Pump (J)',
             'cooling_annual_elec_energy_J': 'Cooling Annual Electrical Energy (J)',
             'cooling_annual_elec_energy_MWhe': 'Cooling Annual Electrical Energy (MWhe)',
-            'cooling_target_avg_flowrate_pd': 'Cooling Target Flow Rate per Borehole (m³/hr)',
+            'cooling_target_avg_flowrate_pd': 'Cooling Flow Rate per Borehole (m³/hr)',
             
             # System parameters
             'energy_balance_ratio': 'Energy Balance Ratio (EBR)',
@@ -2167,7 +2217,8 @@ class ATESResultsExporter:
             'aquifer_temp': 'Aquifer Temperature (°C)',
             'water_density': 'Water Density (kg/m³)',
             'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
-            'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+            'thermal_recovery_factor': 'Thermal Recovery Factor Heating (-)',
+            'balance_tolerance': 'Energy or Volume Balance Tolerance (-)',
             'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
             'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
             'heating_number_of_doublets': 'Number of Doublets',
@@ -2496,7 +2547,8 @@ def _format_param_name(self, param_name: str) -> str:
         'aquifer_temp': 'Aquifer Temperature (°C)',
         'water_density': 'Water Density (kg/m³)',
         'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
-        'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+            'thermal_recovery_factor': 'Thermal Recovery Factor Heating (-)',
+        'balance_tolerance': 'Energy or Volume Balance Tolerance (-)',
         'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
         'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
         'heating_number_of_doublets': 'Number of Doublets',

@@ -43,7 +43,7 @@ def update_all_parameters_from_temp():
         ('tolerance_in_thermal_recovery', '_temp_tolerance_in_thermal_recovery'),
         ('use_volume_balance', '_temp_use_volume_balance'),
         ('tolerance_in_volume_balance', '_temp_tolerance_in_volume_balance'),
-        
+
         # B. System Operational Parameters
         ('specify_cooling_flowrate', '_temp_specify_cooling_flowrate'),
         ('heating_target_avg_flowrate_pd', '_temp_heating_target_avg_flowrate_pd'),
@@ -55,7 +55,7 @@ def update_all_parameters_from_temp():
         ('pump_energy_density', '_temp_pump_energy_density'),
         ('heating_ave_injection_temp', '_temp_heating_ave_injection_temp'),
         ('heating_temp_to_building', '_temp_heating_temp_to_building'),
-        
+
         # C. COP Parameters
         ('cop_param_a', '_temp_cop_param_a'),
         ('cop_param_b', '_temp_cop_param_b'),
@@ -211,6 +211,19 @@ def calculate_flowrate_preview(**overrides):
         return preview_params.heating_target_avg_flowrate_pd
     return preview_params.cooling_target_avg_flowrate_pd
 
+def get_specified_flowrate_value(params):
+    """Return the currently user-specified borehole flowrate."""
+    if params.specify_cooling_flowrate:
+        return params.cooling_target_avg_flowrate_pd or params.heating_target_avg_flowrate_pd
+    return params.heating_target_avg_flowrate_pd
+
+
+def get_specified_balance_tolerance_value(params):
+    """Return the currently user-specified balance tolerance."""
+    if params.use_volume_balance:
+        return params.tolerance_in_volume_balance
+    return params.tolerance_in_energy_balance
+
 
 def render_parameter_section_a():
     """
@@ -324,56 +337,67 @@ def render_parameter_section_c():
     v = st.session_state.get('input_widget_version', 0)
     
     with st.expander("C. System Operation", expanded=False):
-        # Feature A: choose which flowrate the user specifies (the other is computed + capped)
-        specify_choice = st.radio(
-            "Specify flowrate",
-            options=["Warm flowrate (compute cool)", "Cool flowrate (compute warm)"],
-            index=1 if bool(st.session_state.ates_params.specify_cooling_flowrate) else 0,
-            help="The specified rate is treated as the maximum; the computed rate magnitude is capped to it.",
-            key=f"specify_flowrate_choice_v{v}",
-            horizontal=True,
-        )
-        specify_cooling_flowrate = specify_choice.startswith("Cool")
-
-        flow_col, recovery_col = st.columns(2)
+        flow_col, balance_col = st.columns(2)
 
         with flow_col:
-            if not specify_cooling_flowrate:
-                heating_target_avg_flowrate_pd = st.number_input(
-                    "Target Flow Rate Heating (m³/hr)",
-                    value=float(st.session_state.ates_params.heating_target_avg_flowrate_pd),
-                    min_value=0.01,
-                    step=1.0,
-                    format="%.2f",
-                    help="Target (warm) flow rate per doublet for heating",
-                    key=f"heating_target_avg_flowrate_pd_v{v}"
-                )
-                cooling_target_avg_flowrate_pd = float(st.session_state.ates_params.cooling_target_avg_flowrate_pd)
-            else:
-                cooling_target_avg_flowrate_pd = st.number_input(
-                    "Target Flow Rate Cooling (m³/hr)",
-                    value=float(st.session_state.ates_params.cooling_target_avg_flowrate_pd) or 60.0,
-                    min_value=0.01,
-                    step=1.0,
-                    format="%.2f",
-                    help="Target (cool) flow rate per doublet for cooling",
-                    key=f"cooling_target_avg_flowrate_pd_v{v}"
-                )
-                heating_target_avg_flowrate_pd = float(st.session_state.ates_params.heating_target_avg_flowrate_pd)
-
-        with recovery_col:
-            thermal_recovery_factor = st.number_input(
-                "Thermal Recovery Factor (-)",
-                value=float(st.session_state.ates_params.thermal_recovery_factor),
-                min_value=0.0,
-                max_value=1.0,
-                step=0.01,
-                format="%.2f",
-                help="Thermal recovery efficiency",
-                key=f"thermal_recovery_factor_v{v}"
+            # Feature A: one user-entered flowrate plus a selector for whether it is warm or cool.
+            specify_choice = st.radio(
+                "Borehole Flow Rate",
+                options=["Warm flowrate (compute cool)", "Cool flowrate (compute warm)"],
+                index=1 if bool(st.session_state.ates_params.specify_cooling_flowrate) else 0,
+                help="The entered flow rate is treated as the specified maximum; the other flow rate is computed and capped to it.",
+                key=f"specify_flowrate_choice_v{v}",
+                horizontal=False,
             )
+            specify_cooling_flowrate = specify_choice.startswith("Cool")
+            specified_flowrate = st.number_input(
+                "Flow Rate per Borehole (m³/hr)",
+                value=float(st.session_state.get(
+                    '_temp_specified_flowrate',
+                    get_specified_flowrate_value(st.session_state.ates_params)
+                )),
+                min_value=0.01,
+                step=1.0,
+                format="%.2f",
+                help="User-specified flow rate per borehole",
+                key=f"specified_flowrate_v{v}"
+            )
+            heating_target_avg_flowrate_pd = float(specified_flowrate)
+            cooling_target_avg_flowrate_pd = float(specified_flowrate)
+            flowrate_preview_slot = st.empty()
 
-        flowrate_preview_slot = st.empty()
+        with balance_col:
+            balance_choice = st.radio(
+                "Energy and Volume Balance",
+                options=["Energy balance", "Volume balance"],
+                index=1 if bool(st.session_state.ates_params.use_volume_balance) else 0,
+                help="Select which balance is used to compute the other flow rate.",
+                key=f"balance_choice_v{v}",
+                horizontal=False,
+            )
+            use_volume_balance = balance_choice.startswith("Volume")
+            balance_tolerance = st.number_input(
+                "Balance Tolerance (-)",
+                value=float(st.session_state.get(
+                    '_temp_balance_tolerance',
+                    get_specified_balance_tolerance_value(st.session_state.ates_params)
+                )),
+                step=0.01,
+                format="%.3f",
+                help="Balance tolerance",
+                key=f"balance_tolerance_v{v}"
+            )
+            # Only the selected balance uses the shared input.  Keep the
+            # inactive tolerance unchanged so Calculate does not create a
+            # parameter change on an untouched case.
+            tolerance_in_energy_balance = (
+                float(st.session_state.ates_params.tolerance_in_energy_balance)
+                if use_volume_balance else float(balance_tolerance)
+            )
+            tolerance_in_volume_balance = (
+                float(balance_tolerance)
+                if use_volume_balance else float(st.session_state.ates_params.tolerance_in_volume_balance)
+            )
 
         col1, col2 = st.columns(2)
 
@@ -386,7 +410,22 @@ def render_parameter_section_c():
                 help="Number of well doublets",
                 key=f"heating_number_of_doublets_v{v}"
             )
-            
+
+        with col2:
+            thermal_recovery_factor = st.number_input(
+                "Thermal Recovery Factor Heating (-)",
+                value=float(st.session_state.ates_params.thermal_recovery_factor),
+                min_value=0.0,
+                max_value=1.0,
+                step=0.01,
+                format="%.2f",
+                help="Thermal recovery efficiency",
+                key=f"thermal_recovery_factor_v{v}"
+            )
+
+        temp_col1, temp_col2 = st.columns(2)
+
+        with temp_col1:
             heating_ave_injection_temp = st.number_input(
                 "Cool well injection temperature (°C)",
                 value=float(st.session_state.ates_params.heating_ave_injection_temp),
@@ -398,17 +437,8 @@ def render_parameter_section_c():
             )
             if heating_ave_injection_temp >= st.session_state.ates_params.aquifer_temp:
                 st.warning("Cool well injection temperature must be < aquifer temperature")
-        
-        with col2:
-            tolerance_in_energy_balance = st.number_input(
-                "Energy Balance Tolerance (-)",
-                value=float(st.session_state.ates_params.tolerance_in_energy_balance),
-                step=0.01,
-                format="%.2f",
-                help="Energy balance tolerance",
-                key=f"tolerance_in_energy_balance_v{v}"
-            )
 
+        with temp_col2:
             cooling_ave_injection_temp = st.number_input(
                 "Warm well injection temperature (°C)",
                 value=float(st.session_state.ates_params.cooling_ave_injection_temp),
@@ -421,16 +451,7 @@ def render_parameter_section_c():
             if cooling_ave_injection_temp <= st.session_state.ates_params.aquifer_temp:
                 st.warning("Warm well injection temperature must be > aquifer temperature")
 
-        _, volume_toggle_col = st.columns(2)
-        with volume_toggle_col:
-            use_volume_balance = st.checkbox(
-                "Use Volume Balance for Cooling Flow Rate",
-                value=bool(st.session_state.ates_params.use_volume_balance),
-                help="If checked, uses volume balance; otherwise uses energy balance",
-                key=f"use_volume_balance_v{v}"
-            )
-
-        col3, col4 = st.columns(2)
+        col3, _ = st.columns(2)
 
         with col3:
             tolerance_in_thermal_recovery = st.number_input(
@@ -443,18 +464,6 @@ def render_parameter_section_c():
                 help="Difference between heating and cooling thermal recovery factors",
                 key=f"tolerance_in_thermal_recovery_v{v}"
             )
-
-        with col4:
-            if use_volume_balance:
-                tolerance_in_volume_balance = st.number_input(
-                    "Volume Balance Tolerance εVBR (-)",
-                    value=float(st.session_state.ates_params.tolerance_in_volume_balance),
-                    step=0.01,
-                    format="%.3f",
-                    key=f"tolerance_in_volume_balance_v{v}"
-                )
-            else:
-                tolerance_in_volume_balance = st.session_state.ates_params.tolerance_in_volume_balance
 
         try:
             preview_flowrate = calculate_flowrate_preview(
@@ -473,13 +482,16 @@ def render_parameter_section_c():
                 cooling_ave_injection_temp=cooling_ave_injection_temp,
             )
             if specify_cooling_flowrate:
+                heating_target_avg_flowrate_pd = float(preview_flowrate)
                 flowrate_preview_slot.caption(f"Computed warm flow rate: {preview_flowrate:.2f} m³/hr (capped)")
             else:
+                cooling_target_avg_flowrate_pd = float(preview_flowrate)
                 flowrate_preview_slot.caption(f"Computed cool flow rate: {preview_flowrate:.2f} m³/hr (capped)")
         except Exception:
             flowrate_preview_slot.caption("Computed flow rate preview unavailable for the current inputs.")
 
         st.session_state['_temp_specify_cooling_flowrate'] = specify_cooling_flowrate
+        st.session_state['_temp_specified_flowrate'] = specified_flowrate
         st.session_state['_temp_heating_target_avg_flowrate_pd'] = heating_target_avg_flowrate_pd
         st.session_state['_temp_cooling_target_avg_flowrate_pd'] = cooling_target_avg_flowrate_pd
         st.session_state['_temp_heating_number_of_doublets'] = heating_number_of_doublets
@@ -489,6 +501,7 @@ def render_parameter_section_c():
         st.session_state['_temp_cooling_ave_injection_temp'] = cooling_ave_injection_temp
         st.session_state['_temp_tolerance_in_thermal_recovery'] = tolerance_in_thermal_recovery
         st.session_state['_temp_use_volume_balance'] = use_volume_balance
+        st.session_state['_temp_balance_tolerance'] = balance_tolerance
         st.session_state['_temp_tolerance_in_volume_balance'] = tolerance_in_volume_balance
 
 def render_parameter_section_d():
@@ -710,11 +723,12 @@ def initialize_temp_variables_from_params():
     st.session_state['_temp_tolerance_in_thermal_recovery'] = params.tolerance_in_thermal_recovery
     st.session_state['_temp_use_volume_balance'] = params.use_volume_balance
     st.session_state['_temp_tolerance_in_volume_balance'] = params.tolerance_in_volume_balance
-    
+    st.session_state['_temp_balance_tolerance'] = get_specified_balance_tolerance_value(params)
     # B. System Operational Parameters
     st.session_state['_temp_specify_cooling_flowrate'] = params.specify_cooling_flowrate
     st.session_state['_temp_heating_target_avg_flowrate_pd'] = params.heating_target_avg_flowrate_pd
     st.session_state['_temp_cooling_target_avg_flowrate_pd'] = params.cooling_target_avg_flowrate_pd
+    st.session_state['_temp_specified_flowrate'] = get_specified_flowrate_value(params)
     st.session_state['_temp_tolerance_in_energy_balance'] = params.tolerance_in_energy_balance
     st.session_state['_temp_heating_number_of_doublets'] = params.heating_number_of_doublets
     st.session_state['_temp_heating_days'] = params.heating_days
@@ -832,7 +846,7 @@ def render_heating_results(results):
     """
     with st.expander("Heating Results", expanded=True):
         # key metrics
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2 = st.columns(2)
         
         with col1:
             st.metric(
@@ -843,18 +857,20 @@ def render_heating_results(results):
         
         with col2:
             st.metric(
+                "Electrical / unit thermal",
+                f"{results.heating_elec_energy_per_thermal:.3f}",
+                help="Electrical energy per unit thermal energy (kWhe/kWhth)"
+            )
+
+        col3, col4 = st.columns(2)
+
+        with col3:
+            st.metric(
                 "Building Energy",
                 f"{results.heating_annual_energy_building_GWhth:.2f} GWh",
                 help="Annual energy supplied to the building"
             )
-        
-        with col3:
-            st.metric(
-                "Electrical Energy",
-                f"{results.heating_annual_elec_energy_GWhe:.2f} GWh",
-                help="Annual electrical energy consumption"
-            )
-        
+
         with col4:
             st.metric(
                 "CO₂ Emissions",
@@ -867,9 +883,9 @@ def render_heating_results(results):
         heating_params = [
             ("Total Energy Stored (J)", results.heating_total_energy_stored, "J"),
             ("Stored Energy Recovered (J)", results.heating_stored_energy_recovered, "J"),
+            ("Flow Rate per Borehole (m³/hr)", st.session_state.ates_params.heating_target_avg_flowrate_pd, "m³/hr"),
             ("Total Flow Rate (m³/hr)", results.heating_total_flow_rate_m3hr, "m³/hr"),
             ("Total Flow Rate (l/s)", results.heating_total_flow_rate_ls, "l/s"),
-            ("Total Flow Rate (m³/s)", results.heating_total_flow_rate_m3s, "m³/s"),
             ("Average Production Temperature", results.heating_physical_production_temp, "°C"),
             ("Average Temperature Change Across Heat Exchanger", results.heating_ave_temp_change_across_HX, "°C"),
             ("Temperature Change Induced by HP", results.heating_temp_change_induced_HP, "°C"),
@@ -893,8 +909,8 @@ def render_heating_results(results):
             ("Annual Electrical Energy (MWhe)", results.heating_annual_elec_energy_MWhe, "MWhe"),
             ("Annual Electrical Energy (GWhe)", results.heating_annual_elec_energy_GWhe, "GWhe"),
             ("System COP", results.heating_system_cop, "-"),
-            ("Electrical Energy per Thermal", results.heating_elec_energy_per_thermal, "kWhe/kWhth"),
-            ("CO₂ Emissions per Thermal", results.heating_co2_emissions_per_thermal, "gCO₂/kWhth"),
+            ("Electrical Energy per unit thermal energy", results.heating_elec_energy_per_thermal, "kWhe/kWhth"),
+            ("CO₂ Emissions per unit thermal energy", results.heating_co2_emissions_per_thermal, "gCO₂/kWhth"),
         ]
 
         for name, value, unit in heating_params:
@@ -932,7 +948,7 @@ def render_cooling_results(results):
             st.success("Direct Cooling Mode Active - Production temperature sufficient for direct cooling")
         
         # Key metrics
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2 = st.columns(2)
         
         with col1:
             st.metric(
@@ -943,18 +959,20 @@ def render_cooling_results(results):
         
         with col2:
             st.metric(
+                "Electrical / unit thermal",
+                f"{results.cooling_elec_energy_per_thermal:.3f}",
+                help="Electrical energy per unit thermal energy (kWhe/kWhth)"
+            )
+
+        col3, col4 = st.columns(2)
+
+        with col3:
+            st.metric(
                 "Building Energy",
                 f"{results.cooling_annual_energy_building_GWhth:.2f} GWh",
                 help="Annual energy supplied to the building"
             )
-        
-        with col3:
-            st.metric(
-                "Electrical Energy",
-                f"{results.cooling_annual_elec_energy_GWhe:.2f} GWh",
-                help="Annual electrical energy consumption"
-            )
-        
+
         with col4:
             st.metric(
                 "CO₂ Emissions",
@@ -967,10 +985,9 @@ def render_cooling_results(results):
         cooling_params = [
             ("Total Energy Stored (J)", results.cooling_total_energy_stored, "J"),
             ("Stored Energy Recovered (J)", results.cooling_stored_energy_recovered, "J"),
-            ("Target Flow Rate per Borehole (m³/hr)", st.session_state.ates_params.cooling_target_avg_flowrate_pd, "m³/hr"),
+            ("Flow Rate per Borehole (m³/hr)", st.session_state.ates_params.cooling_target_avg_flowrate_pd, "m³/hr"),
             ("Total Flow Rate (m³/hr)", results.cooling_total_flow_rate_m3hr, "m³/hr"),
             ("Total Flow Rate (l/s)", results.cooling_total_flow_rate_ls, "l/s"),
-            ("Total Flow Rate (m³/s)", results.cooling_total_flow_rate_m3s, "m³/s"),
             ("Average Production Temperature", results.cooling_physical_production_temp, "°C"),
             ("Average Temperature Change Across Heat Exchanger", results.cooling_ave_temp_change_across_HX, "°C"),
             ("Temperature Change Induced by HP", results.cooling_temp_change_induced_HP, "°C"),
@@ -994,8 +1011,8 @@ def render_cooling_results(results):
             ("Annual Electrical Energy (MWhe)", results.cooling_annual_elec_energy_MWhe, "MWhe"),
             ("Annual Electrical Energy (GWhe)", results.cooling_annual_elec_energy_GWhe, "GWhe"),
             ("System COP", results.cooling_system_cop, "-"),
-            ("Electrical Energy per Thermal", results.cooling_elec_energy_per_thermal, "kWhe/kWhth"),
-            ("CO₂ Emissions per Thermal", results.cooling_co2_emissions_per_thermal, "gCO₂/kWhth"),
+            ("Electrical Energy per unit thermal energy", results.cooling_elec_energy_per_thermal, "kWhe/kWhth"),
+            ("CO₂ Emissions per unit thermal energy", results.cooling_co2_emissions_per_thermal, "gCO₂/kWhth"),
         ]
 
         for name, value, unit in cooling_params:
@@ -1164,34 +1181,32 @@ def main():
         
         with col2:
             if st.button("Reset", width="stretch"):
-                # Try to restore case snapshot first (for loaded cases)
                 app_state = get_app_state()
-                if app_state.restore_case_snapshot():
-                    # Reset to loaded case state
-                    st.session_state['case_modified'] = False
-                    st.success("Parameters reset to loaded case state")
-                else:
-                    # No snapshot, reset to default
+                restored_loaded_values = app_state.restore_quick_look_snapshot()
+                if not restored_loaded_values:
+                    # A New Case has no loaded baseline, so its Screen 1 reset
+                    # returns to the tool's startup defaults.
                     from tool.core.ates_calculator import ATESParameters
                     st.session_state.ates_params = ATESParameters()
-                    
-                    # Clear calculation results
-                    st.session_state['results'] = None
-                    st.session_state['calculation_count'] = 0
-                    st.session_state['calculation_status'] = 'not_started'
-                    
-                    # Reinitialize distributions
-                    initialize_default_distributions()
-                    
-                    # Sync temp variables
                     initialize_temp_variables_from_params()
-                    
-                    # Increment widget version to force refresh
                     st.session_state['input_widget_version'] = st.session_state.get('input_widget_version', 0) + 1
-                    
+
+                for key in (
+                    'results', 'monte_carlo_results', 'sensitivity_results',
+                    '_mc_config_hash'
+                ):
+                    st.session_state.pop(key, None)
+                st.session_state['calculation_count'] = 0
+                st.session_state['calculation_status'] = 'not_started'
+                st.session_state['last_calculation_time'] = None
+
+                if restored_loaded_values:
+                    app_state.refresh_case_modified_status()
+                    st.success("Quick Look restored to the loaded case values")
+                else:
+                    # Resetting a new/default case is not a user modification.
                     st.session_state['case_modified'] = False
-                    st.success("Parameters reset to default values")
-                
+                    st.success("Quick Look reset to default values")
                 st.rerun()
         
         with col3:

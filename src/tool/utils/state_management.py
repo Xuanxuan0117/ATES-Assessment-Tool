@@ -86,7 +86,8 @@ class ATESAppState:
             # Add state management stability markers
             '_state_initializing': False,
             '_last_reset_time': None,
-            '_navigation_stable': True
+            '_navigation_stable': True,
+            'case_upload_widget_version': 0,
         }
 
         # Only initialize keys that don't exist to avoid overwriting existing state
@@ -168,9 +169,8 @@ class ATESAppState:
         
         param_names = [
             'aquifer_temp', 'water_density', 'water_specific_heat_capacity',
-            'thermal_recovery_factor', 'heating_target_avg_flowrate_pd',
-            'tolerance_in_energy_balance','tolerance_in_thermal_recovery', 
-            'tolerance_in_volume_balance', 'heating_number_of_doublets',
+            'thermal_recovery_factor',
+            'tolerance_in_thermal_recovery', 'heating_number_of_doublets',
             'heating_days', 'cooling_days', 'pump_energy_density',
             'heating_ave_injection_temp', 'heating_temp_to_building',
             'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
@@ -253,11 +253,9 @@ class ATESAppState:
             ('cooling_days', f'cooling_days_v{v}', '_temp_cooling_days'),
             ('heating_temp_to_building', f'heating_temp_to_building_v{v}', '_temp_heating_temp_to_building'),
             ('cooling_temp_to_building', f'cooling_temp_to_building_v{v}', '_temp_cooling_temp_to_building'),
-            ('heating_target_avg_flowrate_pd', f'heating_target_avg_flowrate_pd_v{v}', '_temp_heating_target_avg_flowrate_pd'),
             ('heating_number_of_doublets', f'heating_number_of_doublets_v{v}', '_temp_heating_number_of_doublets'),
             ('heating_ave_injection_temp', f'heating_ave_injection_temp_v{v}', '_temp_heating_ave_injection_temp'),
             ('thermal_recovery_factor', f'thermal_recovery_factor_v{v}', '_temp_thermal_recovery_factor'),
-            ('tolerance_in_energy_balance', f'tolerance_in_energy_balance_v{v}', '_temp_tolerance_in_energy_balance'),
             ('cooling_ave_injection_temp', f'cooling_ave_injection_temp_v{v}', '_temp_cooling_ave_injection_temp'),
             ('cop_param_a', f'cop_param_a_v{v}', '_temp_cop_param_a'),
             ('cop_param_b', f'cop_param_b_v{v}', '_temp_cop_param_b'),
@@ -287,6 +285,48 @@ class ATESAppState:
             except (TypeError, ValueError):
                 if current_value != param_value:
                     return True
+
+        flowrate_choice = st.session_state.get(
+            f'specify_flowrate_choice_v{v}',
+            'Cool flowrate (compute warm)' if getattr(params, 'specify_cooling_flowrate', False)
+            else 'Warm flowrate (compute cool)'
+        )
+        specify_cooling_flowrate = str(flowrate_choice).startswith('Cool')
+        if specify_cooling_flowrate != bool(getattr(params, 'specify_cooling_flowrate', False)):
+            return True
+        specified_flowrate = st.session_state.get(
+            f'specified_flowrate_v{v}',
+            st.session_state.get('_temp_specified_flowrate')
+        )
+        if specified_flowrate is not None:
+            reference_flowrate = (
+                params.cooling_target_avg_flowrate_pd
+                if specify_cooling_flowrate
+                else params.heating_target_avg_flowrate_pd
+            )
+            if abs(float(specified_flowrate) - float(reference_flowrate)) > 1e-9:
+                return True
+
+        balance_choice = st.session_state.get(
+            f'balance_choice_v{v}',
+            'Volume balance' if getattr(params, 'use_volume_balance', False)
+            else 'Energy balance'
+        )
+        use_volume_balance = str(balance_choice).startswith('Volume')
+        if use_volume_balance != bool(getattr(params, 'use_volume_balance', False)):
+            return True
+        specified_tolerance = st.session_state.get(
+            f'specified_balance_tolerance_v{v}',
+            st.session_state.get('_temp_specified_balance_tolerance')
+        )
+        if specified_tolerance is not None:
+            reference_tolerance = (
+                params.tolerance_in_volume_balance
+                if use_volume_balance
+                else params.tolerance_in_energy_balance
+            )
+            if abs(float(specified_tolerance) - float(reference_tolerance)) > 1e-9:
+                return True
         
         return False
     
@@ -327,12 +367,6 @@ class ATESAppState:
         if mc_outdated:
             st.sidebar.warning("Monte Carlo results are outdated. Parameters have changed since last run. Please re-run the analysis.")
         
-        # Check for distribution/parameter mismatch
-        dist_mismatch = self._check_distribution_params_mismatch()
-        
-        if dist_mismatch:
-            st.sidebar.warning("Distribution settings are out of sync with Quick Look parameters. Use 'Sync FROM/TO Quick Look' to synchronize.")
-    
         # Save button
         if st.sidebar.button("Save Case", type="primary", width="stretch", key="stable_save_btn"):
             if has_unsaved_changes:
@@ -344,11 +378,13 @@ class ATESAppState:
         """Render load options - stable version"""
         st.sidebar.markdown("**Load Case**")
         
-        # Use stable key
+        # New Case increments this version so a previously selected file cannot be
+        # reprocessed after returning to a clean default case.
+        upload_widget_version = st.session_state.get('case_upload_widget_version', 0)
         uploaded_file = st.sidebar.file_uploader(
             "Choose case file",
             type=['json'],
-            key="stable_upload_case",
+            key=f"stable_upload_case_v{upload_widget_version}",
             help="Select a previously saved case file"
         )
         
@@ -360,11 +396,20 @@ class ATESAppState:
                 self._load_case_with_naming(uploaded_file)
     
     def _render_simplified_quick_actions(self):
-        """
-        Render simplified quick actions 
-        """
+        """Render case-level actions."""
         st.sidebar.markdown("**Quick Actions**")
-        
+
+        has_loaded_case = bool(st.session_state.get('_has_case_snapshot', False))
+        if st.sidebar.button(
+            "Reset Case to Loaded State",
+            width="stretch",
+            key="reset_loaded_case_btn",
+            disabled=not has_loaded_case,
+            help="Restore the Quick Look parameters, probability distributions, and Monte Carlo settings from the loaded case."
+        ):
+            if self.restore_case_snapshot():
+                st.sidebar.success("Case restored to its loaded state")
+                st.rerun()
 
         if st.sidebar.button("New Case", width="stretch", key="stable_new_case_btn", 
                     help="Start a completely new case (resets everything to startup state)"):
@@ -390,7 +435,8 @@ class ATESAppState:
         # Keep core system components
         core_keys = {
             'app_state_manager',
-            'input_widget_version'
+            'input_widget_version',
+            'case_upload_widget_version',
         }
         
         # Atomic clear all non-core state
@@ -398,6 +444,11 @@ class ATESAppState:
         for key in keys_to_clear:
             if key in st.session_state:
                 del st.session_state[key]
+
+        # Force Streamlit to discard the browser-side file selection as well.
+        st.session_state['case_upload_widget_version'] = (
+            st.session_state.get('case_upload_widget_version', 0) + 1
+        )
         
         # Re-initialize to true startup state
         self._initialize_fresh_startup_state()
@@ -410,6 +461,8 @@ class ATESAppState:
             del st.session_state['_case_snapshot_params']
         if '_case_snapshot_distributions' in st.session_state:
             del st.session_state['_case_snapshot_distributions']
+        if '_case_snapshot_mc_config' in st.session_state:
+            del st.session_state['_case_snapshot_mc_config']
         
         # Show success message
         st.sidebar.success("New case created - All reset to startup state")
@@ -480,9 +533,8 @@ class ATESAppState:
         # All 19 probabilistic parameters
         probabilistic_params = [
             'aquifer_temp', 'water_density', 'water_specific_heat_capacity',
-            'thermal_recovery_factor', 'heating_target_avg_flowrate_pd',
-            'tolerance_in_energy_balance', 'tolerance_in_thermal_recovery',
-            'tolerance_in_volume_balance','heating_number_of_doublets',
+            'thermal_recovery_factor',
+            'tolerance_in_thermal_recovery', 'heating_number_of_doublets',
             'heating_days', 'cooling_days', 'pump_energy_density',
             'heating_ave_injection_temp', 'heating_temp_to_building',
             'cop_param_a', 'cop_param_b', 'cop_param_c', 'cop_param_d',
@@ -507,6 +559,32 @@ class ATESAppState:
                     'location': 0.0,
                     'use_log_params': False
                 }
+
+        flowrate_value = float(params.heating_target_avg_flowrate_pd)
+        distributions['borehole_flow_rate'] = {
+            'type': 'single_value',
+            'value': flowrate_value,
+            'min': flowrate_value * 0.8,
+            'max': flowrate_value * 1.2,
+            'most_likely': flowrate_value,
+            'mean': flowrate_value,
+            'std': max(flowrate_value * 0.1, 0.01),
+            'location': 0.0,
+            'use_log_params': False
+        }
+
+        balance_value = float(params.tolerance_in_energy_balance)
+        distributions['balance_tolerance'] = {
+            'type': 'single_value',
+            'value': balance_value,
+            'min': balance_value * 0.8,
+            'max': balance_value * 1.2,
+            'most_likely': balance_value,
+            'mean': balance_value,
+            'std': max(abs(balance_value) * 0.1, 0.01),
+            'location': 0.0,
+            'use_log_params': False
+        }
         
         st.session_state['param_distributions'] = distributions
     
@@ -546,7 +624,7 @@ class ATESAppState:
             state_data['case_metadata'] = {
                 'case_name': clean_case_name,
                 'save_time': time.strftime('%Y-%m-%d %H:%M:%S'),
-                'ates_tool_version': '7.0'
+                'ates_tool_version': '8.0'
             }
             
             # Convert to JSON
@@ -652,7 +730,7 @@ class ATESAppState:
     
     def _save_case_snapshot(self):
         """
-        Save a snapshot of the loaded case for Reset All functionality
+        Save a complete snapshot of the loaded case.
         """
         import copy
         
@@ -673,13 +751,18 @@ class ATESAppState:
             st.session_state['_case_snapshot_distributions'] = copy.deepcopy(
                 st.session_state['param_distributions']
             )
+
+        if 'mc_config' in st.session_state:
+            st.session_state['_case_snapshot_mc_config'] = copy.deepcopy(
+                st.session_state['mc_config']
+            )
         
         # Mark that a snapshot exists
         st.session_state['_has_case_snapshot'] = True
 
     def restore_case_snapshot(self):
         """
-        Restore the case to its initial loaded state (for Reset All)
+        Restore the complete case to its initial loaded state.
         Returns True if snapshot was restored, False if no snapshot exists
         """
         if not st.session_state.get('_has_case_snapshot', False):
@@ -707,11 +790,100 @@ class ATESAppState:
             )
             st.session_state['param_config_version'] = st.session_state.get('param_config_version', 0) + 1
             st.session_state['stable_param_values'] = {}
-        
+
+        if '_case_snapshot_mc_config' in st.session_state:
+            import copy
+            st.session_state['mc_config'] = copy.deepcopy(
+                st.session_state['_case_snapshot_mc_config']
+            )
+            st.session_state['monte_carlo_iterations'] = st.session_state.mc_config.iterations
+            self._sync_mc_config_to_widget_state()
+            st.session_state['_mc_operation_widgets_need_sync'] = True
+            st.session_state['_mc_settings_widgets_need_sync'] = True
+
+        for key in (
+            'results', 'monte_carlo_results', 'sensitivity_results',
+            '_mc_config_hash'
+        ):
+            st.session_state.pop(key, None)
+        st.session_state['calculation_count'] = 0
+        st.session_state['calculation_status'] = 'not_started'
+        st.session_state['last_calculation_time'] = None
+        st.session_state['case_modified'] = False
+
         # Force widget refresh
         st.session_state['input_widget_version'] = st.session_state.get('input_widget_version', 0) + 1
         
         return True
+
+    def restore_quick_look_snapshot(self) -> bool:
+        """Restore only the loaded case's Quick Look parameters."""
+        if not st.session_state.get('_has_case_snapshot', False):
+            return False
+        if '_case_snapshot_params' not in st.session_state:
+            return False
+
+        from tool.core.ates_calculator import ATESParameters
+        params = ATESParameters()
+        for key, value in st.session_state['_case_snapshot_params'].items():
+            if hasattr(params, key):
+                setattr(params, key, value)
+
+        st.session_state['ates_params'] = params
+        self._sync_params_to_temp_variables()
+        st.session_state['input_widget_version'] = st.session_state.get('input_widget_version', 0) + 1
+        return True
+
+    def restore_monte_carlo_snapshot(self) -> bool:
+        """Restore only the loaded case's distributions and Monte Carlo settings."""
+        if not st.session_state.get('_has_case_snapshot', False):
+            return False
+
+        distributions_snapshot = st.session_state.get('_case_snapshot_distributions')
+        if distributions_snapshot is not None:
+            import copy
+            st.session_state['param_distributions'] = copy.deepcopy(distributions_snapshot)
+            st.session_state['param_config_version'] = st.session_state.get('param_config_version', 0) + 1
+            st.session_state['stable_param_values'] = {}
+
+        mc_config_snapshot = st.session_state.get('_case_snapshot_mc_config')
+        if mc_config_snapshot is not None:
+            import copy
+            st.session_state['mc_config'] = copy.deepcopy(mc_config_snapshot)
+            st.session_state['monte_carlo_iterations'] = st.session_state.mc_config.iterations
+            self._sync_mc_config_to_widget_state()
+            st.session_state['_mc_operation_widgets_need_sync'] = True
+            st.session_state['_mc_settings_widgets_need_sync'] = True
+
+        return distributions_snapshot is not None or mc_config_snapshot is not None
+
+    def refresh_case_modified_status(self) -> bool:
+        """Recalculate whether the current state differs from the loaded case."""
+        if not st.session_state.get('_has_case_snapshot', False):
+            return bool(st.session_state.get('case_modified', False))
+
+        params_match = True
+        params_snapshot = st.session_state.get('_case_snapshot_params')
+        if params_snapshot is not None:
+            current_params = st.session_state.get('ates_params')
+            params_match = all(
+                getattr(current_params, key, object()) == value
+                for key, value in params_snapshot.items()
+            )
+
+        distributions_match = (
+            st.session_state.get('param_distributions')
+            == st.session_state.get('_case_snapshot_distributions')
+        )
+        mc_config_match = (
+            '_case_snapshot_mc_config' not in st.session_state
+            or st.session_state.get('mc_config') == st.session_state.get('_case_snapshot_mc_config')
+        )
+
+        st.session_state['case_modified'] = not (
+            params_match and distributions_match and mc_config_match
+        )
+        return st.session_state['case_modified']
 
 
     def _clean_filename(self, name: str) -> str:
@@ -740,13 +912,36 @@ class ATESAppState:
     def is_case_modified(self) -> bool:
         """Check if case has been modified"""
         return st.session_state.get('case_modified', False)
+
+    def _sync_monte_carlo_operation_widgets_to_config(self):
+        """Capture Screen 2 operation widgets before the sidebar serializes a case."""
+        if 'mc_config' not in st.session_state:
+            return
+
+        mc_config = st.session_state.mc_config
+        flowrate_choice = st.session_state.get('mc_specify_flowrate_choice')
+        if flowrate_choice is not None:
+            mc_config.specify_cooling_flowrate = str(flowrate_choice).startswith('Cool')
+
+        balance_choice = st.session_state.get('mc_balance_choice')
+        if balance_choice is not None:
+            mc_config.use_volume_balance = str(balance_choice).startswith('Volume')
+        elif 'mc_use_volume_balance' in st.session_state:
+            mc_config.use_volume_balance = bool(st.session_state['mc_use_volume_balance'])
+
+        if 'mc_constrain_by_thermal_radius' in st.session_state:
+            mc_config.constrain_by_thermal_radius = bool(
+                st.session_state['mc_constrain_by_thermal_radius']
+            )
     
     def _get_parameters_only(self) -> Dict[str, Any]:
         """Get parameters only data"""
+        self._sync_monte_carlo_operation_widgets_to_config()
+
         data: Dict[str, Any] = {
             'save_type': 'parameters_only',
             'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
-            'version': '7.0'
+            'version': '8.0'
         }
         
         # Display name mapping 
@@ -754,7 +949,9 @@ class ATESAppState:
             'aquifer_temp': 'Aquifer Temperature (°C)',
             'water_density': 'Water Density (kg/m³)',
             'water_specific_heat_capacity': 'Water Specific Heat Capacity (J/kg/K)',
-            'thermal_recovery_factor': 'Thermal Recovery Factor (-)',
+            'thermal_recovery_factor': 'Thermal Recovery Factor Heating (-)',
+            'borehole_flow_rate': 'Borehole Flow Rate (m³/hr)',
+            'balance_tolerance': 'Energy or Volume Balance Tolerance (-)',
             'heating_target_avg_flowrate_pd': 'Target Flow Rate Heating (m³/hr)',
             'tolerance_in_energy_balance': 'Energy Balance Tolerance (-)',
             'tolerance_in_thermal_recovery': 'Thermal Recovery Tolerance εRT (-)',
@@ -955,6 +1152,10 @@ class ATESAppState:
                 'Water Density (kg/m³)': 'water_density',
                 'Water Specific Heat Capacity (J/kg/K)': 'water_specific_heat_capacity',
                 'Thermal Recovery Factor (-)': 'thermal_recovery_factor',
+                'Thermal Recovery Factor Heating (-)': 'thermal_recovery_factor',
+                'Thermal Recovery Factor Cooling (-)': 'thermal_recovery_factor_c',
+                'Borehole Flow Rate (m³/hr)': 'borehole_flow_rate',
+                'Energy or Volume Balance Tolerance (-)': 'balance_tolerance',
                 'Thermal Recovery Tolerance εRT (-)': 'tolerance_in_thermal_recovery',
                 'Use Volume Balance': 'use_volume_balance',
                 'Volume Balance Tolerance εVBR (-)': 'tolerance_in_volume_balance',
@@ -1013,6 +1214,10 @@ class ATESAppState:
                         'Water Density (kg/m³)': 'water_density',
                         'Water Specific Heat Capacity (J/kg/K)': 'water_specific_heat_capacity',
                         'Thermal Recovery Factor (-)': 'thermal_recovery_factor',
+                        'Thermal Recovery Factor Heating (-)': 'thermal_recovery_factor',
+                        'Thermal Recovery Factor Cooling (-)': 'thermal_recovery_factor_c',
+                        'Borehole Flow Rate (m³/hr)': 'borehole_flow_rate',
+                        'Energy or Volume Balance Tolerance (-)': 'balance_tolerance',
                         'Thermal Recovery Tolerance εRT (-)': 'tolerance_in_thermal_recovery',
                         'Use Volume Balance': 'use_volume_balance',
                         'Volume Balance Tolerance εVBR (-)': 'tolerance_in_volume_balance',
@@ -1082,6 +1287,10 @@ class ATESAppState:
             )
             st.session_state['mc_config'] = mc_config
             self._sync_mc_config_to_widget_state()
+            # The upload can be handled after Screen 2 widgets have been created in
+            # the current run. Refresh them once at the start of the next run.
+            st.session_state['_mc_operation_widgets_need_sync'] = True
+            st.session_state['_mc_settings_widgets_need_sync'] = True
 
         from tool.core.ates_calculator import ATESParameters
         ATESParameters.enable_validation()
@@ -1133,6 +1342,17 @@ class ATESAppState:
             if hasattr(params, param_name):
                 st.session_state[temp_key] = getattr(params, param_name)
 
+        st.session_state['_temp_specified_flowrate'] = (
+            params.cooling_target_avg_flowrate_pd
+            if bool(getattr(params, 'specify_cooling_flowrate', False))
+            else params.heating_target_avg_flowrate_pd
+        )
+        st.session_state['_temp_specified_balance_tolerance'] = (
+            params.tolerance_in_volume_balance
+            if bool(getattr(params, 'use_volume_balance', False))
+            else params.tolerance_in_energy_balance
+        )
+
     def _sync_mc_config_to_widget_state(self):
         """Synchronize Monte Carlo config to Screen 2 widget state."""
         if 'mc_config' not in st.session_state:
@@ -1145,6 +1365,11 @@ class ATESAppState:
             else "Warm flowrate (compute cool)"
         )
         st.session_state['mc_use_volume_balance'] = bool(getattr(mc_config, 'use_volume_balance', False))
+        st.session_state['mc_balance_choice'] = (
+            "Volume balance"
+            if bool(getattr(mc_config, 'use_volume_balance', False))
+            else "Energy balance"
+        )
         st.session_state['mc_constrain_by_thermal_radius'] = bool(getattr(mc_config, 'constrain_by_thermal_radius', False))
     
     def _initialize_default_distributions(self):
@@ -1192,7 +1417,12 @@ class ATESAppState:
 
 def get_app_state() -> ATESAppState:
     """Get or create application state manager singleton"""
-    if 'app_state_manager' not in st.session_state:
+    manager = st.session_state.get('app_state_manager')
+    if (
+        manager is None
+        or not isinstance(manager, ATESAppState)
+        or not hasattr(manager, 'restore_quick_look_snapshot')
+    ):
         st.session_state['app_state_manager'] = ATESAppState()
     return cast(ATESAppState, st.session_state['app_state_manager'])
 
